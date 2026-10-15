@@ -204,6 +204,7 @@
     if (!st) return;
     cancelAnimationFrame(st.raf);
     st.cv.remove();
+    if (st.restore) st.restore();
     el.style.opacity = '';
     running.delete(el);
   }
@@ -223,9 +224,16 @@
     }
     st.T = Math.max(...st.cells.map((c) => c.delay)) + FALL + SETTLE;
 
-    // Capa de dibujo dentro del contenedor, sin salirse de la página por los lados
+    // Capa de dibujo dentro del contenedor, sin salirse de la página por los lados.
+    // Si el contenedor no está posicionado, se posiciona solo mientras dura la animación y sin
+    // desplazarlo (p. ej. un «top» pensado para sticky en escritorio); al terminar se deja como estaba.
     const parent = el.parentElement;
-    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
+    if (getComputedStyle(parent).position === 'static') {
+      const prev = { position: parent.style.position, inset: parent.style.inset };
+      parent.style.position = 'relative';
+      parent.style.inset = 'auto';
+      st.restore = () => { parent.style.position = prev.position; parent.style.inset = prev.inset; };
+    }
     const box = el.getBoundingClientRect(), pr = parent.getBoundingClientRect();
     const docW = document.documentElement.clientWidth;
     const pad = { ...PAD, l: Math.max(0, Math.min(PAD.l, box.left)), r: Math.max(0, Math.min(PAD.r, docW - box.right)) };
