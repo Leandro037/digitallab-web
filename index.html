@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Digital Lab · Laboratorio de inteligencia artificial</title>
+  <meta name="description" content="Consultoría en IA, agentes, automatizaciones, desarrollo de software, visión por computadora y XR para empresas.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Hilos de luz que salen del hero y recorren toda la página (los dibuja js/landing.js) -->
+  <svg class="flow" aria-hidden="true"></svg>
+
+  <!-- ============ Navegación ============ -->
+  <header class="nav" data-nav>
+    <div class="nav__inner">
+      <!-- Arriba se ve la cápsula; al pasar el logo grande del hero vuelve la marca pequeña -->
+      <div class="nav__lead">
+        <a class="brand" href="#inicio" aria-label="Digital Lab, inicio">
+          <canvas class="brand__eye" aria-hidden="true"></canvas>
+          <span>DIGITAL LAB</span>
+        </a>
+        <p class="eyebrow nav__eyebrow"><i></i>Laboratorio de inteligencia artificial</p>
+      </div>
+      <nav class="nav__menu" id="menu" aria-label="Principal">
+        <a href="#servicios">Servicios</a>
+        <a href="#proceso">Proceso</a>
+        <a href="#proyectos">Proyectos</a>
+        <a href="#contacto">Contacto</a>
+        <a class="btn btn--primary btn--sm nav__menu-cta" href="#contacto">Hablemos</a>
+      </nav>
+      <a class="btn btn--ghost btn--sm nav__cta" href="#contacto">Hablemos</a>
+      <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="menu" aria-label="Abrir menú">
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ Hero ============ -->
+    <section class="hero" id="inicio">
+      <canvas class="hero__canvas" aria-hidden="true"></canvas>
+      <div class="hero__inner">
+        <div class="hero__copy">
+          <!-- Logo grande; en escritorio la fila de puntos de la animación hace de línea bajo el nombre -->
+          <div class="brandblock fade-in" data-brandblock>
+            <div class="lockup" data-lockup aria-label="Digital Lab">
+              <canvas class="lockup__eye" aria-hidden="true"></canvas>
+              <span class="wordmark">DIGITAL LAB</span>
+            </div>
+            <span class="rule" aria-hidden="true"></span>
+          </div>
+          <h1 data-build>Convertimos tus datos en <span class="grad">inteligencia</span></h1>
+          <p class="lead reveal-in" style="--d:.45s">
+            Diseñamos e integramos soluciones de IA que transforman la información
+            de tu empresa en decisiones claras y automatizadas.
+          </p>
+          <div class="cta reveal-in" style="--d:.6s">
+            <a class="btn btn--primary" href="#contacto">
+              Iniciar un proyecto
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+            </a>
+            <a class="btn btn--ghost" href="#servicios">Ver soluciones</a>
+          </div>
+          <ul class="tags reveal-in" style="--d:.75s">
+            <li style="--c:var(--cyan)">Visión artificial</li>
+            <li style="--c:var(--green)">Modelos de lenguaje</li>
+            <li style="--c:var(--lime)">Analítica predictiva</li>
+          </ul>
+        </div>
+        <div class="hero__visual" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- ============ Tecnologías ============ -->
+    <section class="stack" aria-label="Tecnologías con las que trabajamos">
+      <p class="stack__label">Stack habitual</p>
+      <div class="marquee">
+        <ul class="marquee__track">
+          <li>Python</li><li>PyTorch</li><li>TensorFlow</li><li>OpenCV</li><li>LangChain</li><li>OpenAI</li>
+          <li>Claude</li><li>Hugging Face</li><li>Node.js</li><li>React</li><li>Unity</li><li>Unreal Engine</li>
+          <li>WebXR</li><li>AWS</li><li>Azure</li><li>Google Cloud</li><li>Docker</li><li>n8n</li>
+        </ul>
+        <ul class="marquee__track" aria-hidden="true">
+          <li>Python</li><li>PyTorch</li><li>TensorFlow</li><li>OpenCV</li><li>LangChain</li><li>OpenAI</li>
+          <li>Claude</li><li>Hugging Face</li><li>Node.js</li><li>React</li><li>Unity</li><li>Unreal Engine</li>
+          <li>WebXR</li><li>AWS</li><li>Azure</li><li>Google Cloud</li><li>Docker</li><li>n8n</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ Servicios ============ -->
+    <section class="section services" id="servicios">
+      <div class="wrap">
+        <header class="section__head" data-flow-head data-reveal>
+          <p class="eyebrow"><i></i>Servicios</p>
+          <h2 data-build>Todo lo que la IA puede hacer por tu empresa, <span class="grad">en un solo laboratorio</span></h2>
+          <p class="lead">
+            De la estrategia al producto final. Un mismo equipo de datos, software y experiencias
+            inmersivas te acompaña en cada paso.
+          </p>
+        </header>
+
+        <div class="services__grid">
+          <article class="svc" style="--c:var(--cyan)" data-flow-card="0" data-reveal>
+            <span class="svc__port" data-flow-node="0" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="consultoria" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Consultoría en IA para empresas</h3>
+              <p>Detectamos dónde la IA aporta valor real, priorizamos los casos de uso y te entregamos una hoja de ruta clara, con costes y plazos.</p>
+            </div>
+          </article>
+
+          <article class="svc" style="--c:var(--green)" data-flow-card="1" data-reveal>
+            <span class="svc__port" data-flow-node="1" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="agentes" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Agentes IA</h3>
+              <p>Asistentes que conversan, consultan tus sistemas y ejecutan tareas.</p>
+            </div>
+          </article>
+
+          <article class="svc" style="--c:var(--lime)" data-flow-card="2" data-reveal>
+            <span class="svc__port" data-flow-node="2" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="automatizacion" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Automatizaciones</h3>
+              <p>Conectamos tus herramientas y eliminamos el trabajo repetitivo.</p>
+            </div>
+          </article>
+
+          <article class="svc" style="--c:var(--cyan)" data-flow-card="3" data-reveal>
+            <span class="svc__port" data-flow-node="0" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="software" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Desarrollo de software</h3>
+              <p>Plataformas web, apps y APIs a medida, con la IA integrada desde el diseño y preparadas para crecer con tu negocio.</p>
+            </div>
+          </article>
+
+          <article class="svc" style="--c:var(--green)" data-flow-card="4" data-reveal>
+            <span class="svc__port" data-flow-node="1" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="vision" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Visión por computadora</h3>
+              <p>Sistemas que ven y entienden imágenes y vídeo.</p>
+            </div>
+          </article>
+
+          <article class="svc" style="--c:var(--lime)" data-flow-card="5" data-reveal>
+            <span class="svc__port" data-flow-node="2" aria-hidden="true"></span>
+            <div class="svc__art"><canvas data-mini="xr" aria-hidden="true"></canvas></div>
+            <div class="svc__body">
+              <h3>Desarrollo XR</h3>
+              <p>Experiencias de realidad virtual, aumentada y mixta para formación, ventas y visualización de productos.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Proceso ============ -->
+    <section class="section process" id="proceso">
+      <div class="wrap">
+        <header class="section__head" data-reveal>
+          <p class="eyebrow"><i></i>Cómo trabajamos</p>
+          <h2 data-build>De la idea a producción, <span class="grad">paso a paso</span></h2>
+          <p class="lead">Un método en cuatro fases para que cada inversión en IA esté validada antes de crecer.</p>
+        </header>
+
+        <ol class="steps" data-flow-steps>
+          <li class="step" data-reveal>
+            <span class="step__dot" data-flow-node="1" aria-hidden="true"></span>
+            <div class="step__card">
+              <span class="step__num">01</span>
+              <h3>Diagnóstico</h3>
+              <p>Entendemos tu negocio, tus datos y tus procesos. Salimos con una lista de casos de uso priorizados por impacto y esfuerzo.</p>
+            </div>
+          </li>
+          <li class="step" data-reveal>
+            <span class="step__dot" data-flow-node="1" aria-hidden="true"></span>
+            <div class="step__card">
+              <span class="step__num">02</span>
+              <h3>Prototipo</h3>
+              <p>Construimos una prueba funcional con tus datos reales para validar el valor antes de invertir más.</p>
+            </div>
+          </li>
+          <li class="step" data-reveal>
+            <span class="step__dot" data-flow-node="1" aria-hidden="true"></span>
+            <div class="step__card">
+              <span class="step__num">03</span>
+              <h3>Desarrollo</h3>
+              <p>Llevamos la solución a producción, integrada con tus sistemas y con la seguridad y la privacidad desde el diseño.</p>
+            </div>
+          </li>
+          <li class="step" data-reveal>
+            <span class="step__dot" data-flow-node="1" aria-hidden="true"></span>
+            <div class="step__card">
+              <span class="step__num">04</span>
+              <h3>Escala</h3>
+              <p>Medimos resultados, mejoramos los modelos y formamos a tu equipo para que la solución crezca contigo.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ============ Proyectos (carrusel) ============ -->
+    <section class="section projects" id="proyectos">
+      <div class="wrap">
+        <header class="section__head" data-reveal>
+          <p class="eyebrow"><i></i>Proyectos</p>
+          <h2 data-build>Así se ve la IA <span class="grad">cuando trabaja</span></h2>
+          <p class="lead">Ejemplos de soluciones que podemos construir para tu empresa, una por cada línea de servicio.</p>
+        </header>
+
+        <!-- Para cambiar las fotos, sustituye los archivos de img/ manteniendo el nombre (1600×900 recomendado) -->
+        <div class="carousel" data-carousel data-flow-carousel aria-roledescription="carrusel" aria-label="Proyectos de ejemplo" tabindex="0">
+          <div class="carousel__viewport">
+            <figure class="slide is-active" aria-roledescription="diapositiva" aria-label="1 de 6">
+              <img src="img/agentes.jpg" alt="Esfera de datos luminosa conectada a herramientas, junto a una conversación de chat" width="1600" height="900">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--green)">Agentes IA</span>
+                <h3>Un asistente que atiende, consulta y resuelve</h3>
+              </figcaption>
+            </figure>
+            <figure class="slide" aria-roledescription="diapositiva" aria-label="2 de 6">
+              <img src="img/vision.jpg" alt="Botellas en una cinta transportadora con recuadros de detección y una cámara de inspección" width="1600" height="900" loading="lazy">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--green)">Visión por computadora</span>
+                <h3>Inspección de calidad en la línea de producción</h3>
+              </figcaption>
+            </figure>
+            <figure class="slide" aria-roledescription="diapositiva" aria-label="3 de 6">
+              <img src="img/xr.jpg" alt="Paisaje en malla de neón con un sol verde y un icosaedro flotante" width="1600" height="900" loading="lazy">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--lime)">Desarrollo XR</span>
+                <h3>Formación inmersiva en realidad virtual</h3>
+              </figcaption>
+            </figure>
+            <figure class="slide" aria-roledescription="diapositiva" aria-label="4 de 6">
+              <img src="img/automatizacion.jpg" alt="Hilos de luz que llevan documentos por tres pasos: leer, validar y enviar" width="1600" height="900" loading="lazy">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--lime)">Automatizaciones</span>
+                <h3>Documentos que se procesan solos</h3>
+              </figcaption>
+            </figure>
+            <figure class="slide" aria-roledescription="diapositiva" aria-label="5 de 6">
+              <img src="img/consultoria.jpg" alt="Ciudad isométrica de datos con oportunidades resaltadas en verde" width="1600" height="900" loading="lazy">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--cyan)">Consultoría en IA</span>
+                <h3>Hoja de ruta de IA para dirección</h3>
+              </figcaption>
+            </figure>
+            <figure class="slide" aria-roledescription="diapositiva" aria-label="6 de 6">
+              <img src="img/software.jpg" alt="Paneles holográficos de un dashboard con gráficas y código" width="1600" height="900" loading="lazy">
+              <figcaption>
+                <span class="slide__tag" style="--c:var(--cyan)">Desarrollo de software</span>
+                <h3>Plataforma a medida con IA integrada</h3>
+              </figcaption>
+            </figure>
+            <span class="carousel__scan" aria-hidden="true"></span>
+          </div>
+
+          <div class="carousel__bar">
+            <div class="carousel__tabs" role="tablist" aria-label="Elegir proyecto">
+              <button type="button" role="tab" class="carousel__tab is-active" aria-selected="true"><span>Agentes</span></button>
+              <button type="button" role="tab" class="carousel__tab" aria-selected="false"><span>Visión</span></button>
+              <button type="button" role="tab" class="carousel__tab" aria-selected="false"><span>XR</span></button>
+              <button type="button" role="tab" class="carousel__tab" aria-selected="false"><span>Automatización</span></button>
+              <button type="button" role="tab" class="carousel__tab" aria-selected="false"><span>Consultoría</span></button>
+              <button type="button" role="tab" class="carousel__tab" aria-selected="false"><span>Software</span></button>
+            </div>
+            <p class="carousel__count" aria-live="polite"><b>01</b> / 06</p>
+            <div class="carousel__arrows">
+              <button type="button" class="carousel__arrow" data-dir="-1" aria-label="Proyecto anterior">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 8H3M7 4L3 8l4 4"/></svg>
+              </button>
+              <button type="button" class="carousel__arrow" data-dir="1" aria-label="Proyecto siguiente">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Manifiesto ============ -->
+    <section class="section manifesto" data-flow-manifesto>
+      <div class="wrap">
+        <p class="manifesto__text" data-words data-build>
+          No hacemos IA por moda. Diseñamos sistemas que entienden tu negocio, se integran con lo que ya usas y se miden por resultados.
+        </p>
+        <ul class="pillars">
+          <li class="pillar" data-reveal style="--d:0s">
+            <svg class="pillar__icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M27 4 11 27h12l-2 17 16-23H25l2-17Z"/></svg>
+            <h3>Prototipos rápidos</h3>
+            <p>Validamos el valor con una prueba funcional antes de escalar la inversión.</p>
+          </li>
+          <li class="pillar" data-reveal style="--d:.12s">
+            <svg class="pillar__icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M18 30l12-12M14 22l-4 4a8 8 0 0 0 11 11l4-4M34 26l4-4a8 8 0 0 0-11-11l-4 4"/></svg>
+            <h3>Integración real</h3>
+            <p>Conectamos con tu CRM, ERP, bases de datos y las herramientas que ya usa tu equipo.</p>
+          </li>
+          <li class="pillar" data-reveal style="--d:.24s">
+            <svg class="pillar__icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 4 8 10v12c0 10 7 18 16 22 9-4 16-12 16-22V10L24 4Z"/><path d="M17 24l5 5 9-10"/></svg>
+            <h3>Tus datos, bajo control</h3>
+            <p>Seguridad, privacidad y cumplimiento normativo desde el primer día.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ Contacto ============ -->
+    <section class="section contact" id="contacto">
+      <div class="wrap contact__grid">
+        <!-- Los hilos de la página terminan aquí: datos reales de la visita, calculados en el navegador -->
+        <div class="contact__panel" data-reveal>
+          <div class="panel" data-flow-panel>
+            <span class="panel__port" style="--x:22%" data-flow-node="0" data-port="0" aria-hidden="true"></span>
+            <span class="panel__port" style="--x:50%" data-flow-node="1" data-port="1" aria-hidden="true"></span>
+            <span class="panel__port" style="--x:78%" data-flow-node="2" data-port="2" aria-hidden="true"></span>
+
+            <header class="panel__head">
+              <div>
+                <p class="panel__kicker">Tu visita en datos</p>
+                <h3>Lo que esta web ya sabe de ti</h3>
+              </div>
+              <span class="panel__live" data-live>Conectando…</span>
+            </header>
+
+            <dl class="panel__grid">
+              <div class="stat stat--big">
+                <dt>Tiempo en la web</dt>
+                <dd><b data-stat="time">00:00</b></dd>
+              </div>
+              <div class="stat stat--big">
+                <dt>Clics</dt>
+                <dd><b data-stat="clicks">0</b></dd>
+              </div>
+              <div class="stat">
+                <dt>Visitas</dt>
+                <dd><b data-stat="visits">1ª</b><span data-stat="first">Primera vez aquí</span></dd>
+              </div>
+              <div class="stat">
+                <dt>Página recorrida</dt>
+                <dd><b data-stat="scroll">0%</b><span class="stat__bar"><i data-stat="scrollbar"></i></span></dd>
+              </div>
+              <div class="stat">
+                <dt>Ubicación aprox.</dt>
+                <dd><b data-stat="place">—</b><span data-stat="country"></span></dd>
+              </div>
+              <div class="stat">
+                <dt>Hora local</dt>
+                <dd><b data-stat="clock">--:--</b><span data-stat="lang"></span></dd>
+              </div>
+              <div class="stat">
+                <dt>Dispositivo</dt>
+                <dd><b data-stat="device">—</b><span data-stat="screen"></span></dd>
+              </div>
+              <div class="stat">
+                <dt>Llegaste desde</dt>
+                <dd><b data-stat="ref">—</b><span data-stat="sections"></span></dd>
+              </div>
+            </dl>
+
+            <div class="panel__chart">
+              <div class="panel__chart-head">
+                <span>Tu actividad · últimos 60 s</span>
+                <span data-stat="cursor"></span>
+              </div>
+              <div class="bars" data-bars aria-hidden="true"></div>
+            </div>
+
+            <p class="panel__note">Calculado en tu navegador: estos datos no se envían ni se guardan fuera de tu dispositivo.</p>
+          </div>
+        </div>
+        <div class="contact__body" data-reveal>
+          <p class="eyebrow"><i></i>Contacto</p>
+          <h2 data-build>¿Hablamos de <span class="grad">tu proyecto</span>?</h2>
+          <p class="lead">Cuéntanos qué quieres resolver y te proponemos los primeros pasos, sin compromiso.</p>
+
+          <form class="form" data-form novalidate>
+            <div class="form__row">
+              <label class="field">
+                <span>Nombre</span>
+                <input id="f-nombre" name="nombre" type="text" autocomplete="name" required>
+              </label>
+              <label class="field">
+                <span>Email</span>
+                <input id="f-email" name="email" type="email" autocomplete="email" required>
+              </label>
+            </div>
+            <div class="form__row">
+              <label class="field">
+                <span>Empresa</span>
+                <input id="f-empresa" name="empresa" type="text" autocomplete="organization">
+              </label>
+              <label class="field">
+                <span>¿Qué te interesa?</span>
+                <select id="f-servicio" name="servicio">
+                  <option>Consultoría en IA</option>
+                  <option>Agentes IA</option>
+                  <option>Automatizaciones</option>
+                  <option>Desarrollo de software</option>
+                  <option>Visión por computadora</option>
+                  <option>Desarrollo XR</option>
+                  <option>Otro proyecto</option>
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Cuéntanos tu reto</span>
+              <textarea id="f-mensaje" name="mensaje" rows="4" required></textarea>
+            </label>
+            <button class="btn btn--primary" type="submit">
+              Enviar mensaje
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+            </button>
+            <p class="form__note" role="status" data-form-note hidden></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ Pie ============ -->
+  <footer class="footer">
+    <div class="wrap footer__grid">
+      <div class="footer__brand">
+        <a class="brand brand--small" href="#inicio" aria-label="Digital Lab, inicio">
+          <canvas class="footer__eye" aria-hidden="true"></canvas>
+          <span>DIGITAL LAB</span>
+        </a>
+        <p>Laboratorio de inteligencia artificial para empresas.</p>
+      </div>
+      <nav class="footer__col" aria-label="Servicios">
+        <h3>Servicios</h3>
+        <a href="#servicios">Consultoría en IA</a>
+        <a href="#servicios">Agentes IA</a>
+        <a href="#servicios">Automatizaciones</a>
+        <a href="#servicios">Desarrollo de software</a>
+        <a href="#servicios">Visión por computadora</a>
+        <a href="#servicios">Desarrollo XR</a>
+      </nav>
+      <nav class="footer__col" aria-label="Empresa">
+        <h3>Empresa</h3>
+        <a href="#proceso">Cómo trabajamos</a>
+        <a href="#proyectos">Proyectos</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+    </div>
+    <div class="wrap footer__bottom">
+      <span>© 2026 Digital Lab</span>
+      <a href="#inicio">Volver arriba ↑</a>
+    </div>
+  </footer>
+
+  <!-- ============ WhatsApp (siempre visible) ============ -->
+  <div class="wa" data-wa>
+    <a class="wa-neon" href="#" data-wa-link target="_blank" rel="noopener" aria-label="Escribir a Digital Lab por WhatsApp">
+      <!-- Trazo tenue fijo debajo y trazo de luz que se redibuja encima: el icono nunca se ve cortado -->
+      <svg class="wa-neon__icon" viewBox="0 0 64 64" aria-hidden="true">
+        <g class="wa-neon__track">
+          <path d="M12.1 43.5 9 55l11.5-3.1A23 23 0 1 0 12.1 43.5Z"/>
+          <path transform="translate(20 20)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </g>
+        <g class="wa-neon__light">
+          <path pathLength="1" d="M12.1 43.5 9 55l11.5-3.1A23 23 0 1 0 12.1 43.5Z"/>
+          <path pathLength="1" transform="translate(20 20)" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        </g>
+      </svg>
+      <span class="wa-neon__label">Escríbenos por WhatsApp</span>
+    </a>
+  </div>
+
+  <script src="js/hero-animation.js"></script>
+  <script src="js/logo-animations.js"></script>
+  <script src="js/text-build.js"></script>
+  <script src="js/landing.js"></script>
+</body>
+</html>

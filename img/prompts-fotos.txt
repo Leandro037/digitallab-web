@@ -1,0 +1,23 @@
+Prompts para generar las fotos del carrusel con IA
+==================================================
+Formato: 16:9, 1600×900 o mayor. Guarda cada imagen con el mismo nombre de archivo en esta carpeta.
+Estilo común (añádelo al final de cada prompt):
+  cinematic photo, dark moody lighting, teal and lime green neon accents, shallow depth of field, high detail, no text, no logos
+
+agentes.jpg — Agentes IA
+  A customer support agent at a modern desk talking with a friendly holographic AI assistant made of glowing green particles, chat bubbles floating in the air, night office
+
+vision.jpg — Visión por computadora
+  Industrial production line with bottles on a conveyor belt, a machine vision camera above inspecting them, glowing bounding boxes around each bottle, factory at night
+
+xr.jpg — Desarrollo XR
+  Engineer wearing a VR headset in a dark training room, interacting with a floating holographic 3D model of an industrial machine, green light reflections
+
+automatizacion.jpg — Automatizaciones
+  Paper invoices and documents dissolving into streams of light that flow into a clean digital dashboard, close-up on a desk, long exposure light trails
+
+consultoria.jpg — Consultoría en IA
+  Small team of executives in a glass meeting room looking at a large screen with an AI strategy roadmap and glowing data charts, city lights outside
+
+software.jpg — Desarrollo de software
+  Developer at night in front of two monitors with code and a modern web dashboard, ambient green and cyan light, plants and a minimalist workspace
