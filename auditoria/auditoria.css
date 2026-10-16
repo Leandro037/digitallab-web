@@ -1,5 +1,8 @@
 /* Digital Lab · auditoría web con IA */
 
+/* lo oculto con el atributo hidden no se muestra aunque su clase defina display */
+[hidden] { display: none !important; }
+
 .au-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------- Cabecera ---------- */
@@ -25,12 +28,18 @@
 
 /* ---------- Escenario: agente + hilos ---------- */
 .au-stage { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 40px; }
-.au-agent-wrap { position: relative; z-index: 2; width: min(78vw, 320px); margin-bottom: -46px; }
-.au-agent { display: block; width: 100%; height: auto; overflow: visible; }
-.au-flow { position: relative; width: min(100%, 1100px); height: clamp(260px, 34vw, 380px); }
+.au-agent-wrap { position: relative; z-index: 2; width: min(76vw, 340px); }
+.au-agent-wrap, .au-result { scroll-margin-top: 84px; }
+/* Los hilos solo aparecen mientras el agente trabaja: el lienzo mantiene su tamaño y el contenedor se despliega */
+.au-flow {
+  --flow-h: clamp(260px, 34vw, 380px);
+  position: relative; width: min(100%, 1100px); height: 0; margin-top: 0; overflow: hidden; opacity: 0;
+  transition: height .8s cubic-bezier(.3, .7, .2, 1), margin-top .8s cubic-bezier(.3, .7, .2, 1), opacity .6s ease;
+}
+.au-flow.is-on { height: var(--flow-h); margin-top: -40px; opacity: 1; }
 /* bordes difuminados: la animación se funde con el fondo sin dejar un recuadro */
 .au-canvas {
-  position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+  position: absolute; top: 0; left: 0; display: block; width: 100%; height: var(--flow-h);
   -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);
   mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);
 }
@@ -48,60 +57,69 @@
 .au-steps li.is-skip { color: var(--faint); text-decoration: line-through; }
 .au-timer { margin: 14px 0 0; color: var(--faint); font: 500 13px/1 var(--mono); }
 
-/* ---------- Agente: piezas ---------- */
-.au-agent .ag-eye { fill: none; stroke: url(#ag-eye); stroke-width: 7; stroke-linecap: round; }
-.au-agent .ag-hand { fill: #0f171e; stroke: #22d3ee; stroke-opacity: .4; stroke-width: 1.5; }
-.au-agent .ag-code rect { fill: #5ad41c; }
-.au-agent .ag-bits rect { fill: #a6ff57; opacity: 0; }
-.au-agent .ag-code { opacity: 0; transition: opacity .6s; }
-.au-agent .ag-face-light { opacity: .5; transition: opacity .6s; }
-.au-agent .ag-body, .au-agent .ag-eyes, .au-agent .ag-hand, .au-agent .ag-logo-outer, .au-agent .ag-logo-inner,
-.au-agent .ag-logo-iris, .au-agent .ag-code, .au-agent .ag-bits rect, .au-agent .ag-eye { transform-box: fill-box; transform-origin: center; }
-.au-agent .ag-logo-outer, .au-agent .ag-logo-inner { transform-box: view-box; transform-origin: 265px 280px; }
+/* ---------- Agente: imagen + capa animada ---------- */
+.au-agent { position: relative; }
+.ag-body { position: relative; animation: ag-breathe 5s ease-in-out infinite; }
+.ag-img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+.ag-fx { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.ag-aura {
+  position: absolute; left: 50%; top: 55%; width: 92%; height: 78%; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(150, 60, 255, .5), rgba(120, 40, 255, .14) 62%, transparent);
+  filter: blur(22px); opacity: .45; animation: ag-aura 5s ease-in-out infinite;
+}
+.ag-eye { fill: none; stroke: #fbe4ff; stroke-width: 15; stroke-linecap: round; }
+.ag-eyes, .ag-eye, .ag-scan, .ag-orbit, .ag-halo, .ag-bits rect { transform-box: fill-box; transform-origin: center; }
+.ag-code rect { fill: #cf8bff; }
+.ag-code { opacity: 0; transition: opacity .6s; }
+.ag-scan { opacity: 0; transition: opacity .4s; }
+.ag-screen { fill: #c35cff; opacity: 0; mix-blend-mode: screen; transition: opacity .6s; }
+.ag-halo { opacity: .25; animation: ag-glow 4s ease-in-out infinite; }
+.ag-orbit { fill: none; stroke: #f1b6ff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 20 30; opacity: 0; transition: opacity .5s; }
+.ag-orbit--in { stroke-width: 4; stroke-dasharray: 8 20; }
+.ag-bits rect { fill: #eab0ff; opacity: 0; }
 
-/* En reposo: respira, parpadea y el logo late despacio */
-.au-agent .ag-body { animation: ag-breathe 5s ease-in-out infinite; }
-.au-agent .ag-eye { animation: ag-blink 6s ease-in-out infinite; }
-.au-agent .ag-logo-iris { animation: ag-pulse 3.2s ease-in-out infinite; }
-.au-agent .ag-rim-glow { animation: ag-rim 5s ease-in-out infinite; }
+/* Reposo: respira y parpadea de vez en cuando */
+.ag-eye { animation: ag-blink 6s ease-in-out infinite; }
 
-/* Trabajando: mira de lado a lado, teclea, el logo gira y suben datos */
-.au-agent[data-state="working"] .ag-eyes { animation: ag-scan 2.4s ease-in-out infinite; }
-.au-agent[data-state="working"] .ag-eye { animation: ag-blink 2.4s ease-in-out infinite; }
-.au-agent[data-state="working"] .ag-code { opacity: .38; animation: ag-scroll 2.2s linear infinite; }
-.au-agent[data-state="working"] .ag-face-light { opacity: 1; animation: ag-flicker 1.6s ease-in-out infinite; }
-.au-agent[data-state="working"] .ag-hand--l { animation: ag-type .26s ease-in-out infinite alternate; }
-.au-agent[data-state="working"] .ag-hand--r { animation: ag-type .26s ease-in-out -.13s infinite alternate; }
-.au-agent[data-state="working"] .ag-logo-outer { animation: ag-spin 2.6s linear infinite; }
-.au-agent[data-state="working"] .ag-logo-inner { animation: ag-spin 1.9s linear infinite reverse; }
-.au-agent[data-state="working"] .ag-logo-iris { animation: ag-pulse .9s ease-in-out infinite; }
-.au-agent[data-state="working"] .ag-rim-glow { animation: ag-rim 1.4s ease-in-out infinite; }
-.au-agent[data-state="working"] .ag-bits rect { animation: ag-bit 1.6s ease-out infinite; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(2) { animation-delay: -.2s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(3) { animation-delay: -.9s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(4) { animation-delay: -.5s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(5) { animation-delay: -1.2s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(6) { animation-delay: -.7s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(7) { animation-delay: -1.4s; }
-.au-agent[data-state="working"] .ag-bits rect:nth-child(8) { animation-delay: -.35s; }
-.au-agent[data-state="working"] .ag-desk { animation: ag-flicker 1.2s ease-in-out infinite; }
+/* Trabajando: mira de un lado a otro, el visor escanea y el portátil se ilumina */
+.au-agent[data-state="working"] .ag-body { animation-duration: 2.4s; }
+.au-agent[data-state="working"] .ag-aura { opacity: .9; animation: ag-aura 1.4s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-eyes { animation: ag-look 2.6s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-eye { animation: ag-blink 2.6s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-code { opacity: .32; animation: ag-scroll 2.2s linear infinite; }
+.au-agent[data-state="working"] .ag-scan { opacity: 1; animation: ag-sweep 1.9s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-screen { animation: ag-flicker 1.3s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-halo { animation: ag-glow .9s ease-in-out infinite; }
+.au-agent[data-state="working"] .ag-orbit { opacity: .85; animation: ag-spin 3s linear infinite; }
+.au-agent[data-state="working"] .ag-orbit--in { animation-duration: 2s; animation-direction: reverse; }
+.au-agent[data-state="working"] .ag-bits rect { animation: ag-bit 1.7s ease-out infinite; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(2) { animation-delay: -.3s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(3) { animation-delay: -1s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(4) { animation-delay: -.6s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(5) { animation-delay: -1.3s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(6) { animation-delay: -.15s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(7) { animation-delay: -.85s; }
+.au-agent[data-state="working"] .ag-bits rect:nth-child(8) { animation-delay: -1.5s; }
 
-/* Terminado: ojos sonrientes y un destello */
-.au-agent[data-state="done"] .ag-eyes { animation: ag-happy .7s cubic-bezier(.2, .9, .3, 1.4) both; }
-.au-agent[data-state="done"] .ag-eye { stroke-width: 8; }
-.au-agent[data-state="error"] .ag-eye { stroke: #ff9a6a; animation: ag-blink 3s ease-in-out infinite; }
+/* Terminado: ojos contentos; error: ojos naranjas */
+.au-agent[data-state="done"] .ag-eyes { animation: ag-happy .8s cubic-bezier(.2, .9, .3, 1.4) both; }
+.au-agent[data-state="done"] .ag-halo { opacity: .5; }
+.au-agent[data-state="error"] .ag-eyes { filter: url(#ag-glow-err); }
+.au-agent[data-state="error"] .ag-eye { stroke: #ffc2a6; animation: ag-blink 3s ease-in-out infinite; }
+.au-agent[data-state="error"] .ag-aura { opacity: .2; }
 
-@keyframes ag-breathe { 50% { transform: translateY(-3px) scale(1.006); } }
-@keyframes ag-blink { 0%, 44%, 50%, 100% { transform: scaleY(1); } 47% { transform: scaleY(.1); } }
-@keyframes ag-pulse { 50% { transform: scale(1.12); } }
-@keyframes ag-rim { 50% { opacity: .55; } }
-@keyframes ag-scan { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 60% { transform: translateX(7px); } }
-@keyframes ag-scroll { to { transform: translateY(-36px); } }
-@keyframes ag-flicker { 0%, 100% { opacity: .75; } 40% { opacity: 1; } 60% { opacity: .6; } }
-@keyframes ag-type { to { transform: translateY(-5px); } }
+@keyframes ag-breathe { 50% { transform: translateY(-5px); } }
+@keyframes ag-aura { 50% { opacity: .65; transform: translate(-50%, -50%) scale(1.04); } }
+@keyframes ag-blink { 0%, 44%, 50%, 100% { transform: scaleY(1); } 47% { transform: scaleY(.12); } }
+@keyframes ag-look { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-24px); } 62% { transform: translateX(24px); } }
+@keyframes ag-scroll { to { transform: translateY(-60px); } }
+@keyframes ag-sweep { 0% { transform: translateY(0); } 100% { transform: translateY(400px); } }
+@keyframes ag-flicker { 0%, 100% { opacity: .08; } 35% { opacity: .2; } 60% { opacity: .05; } }
+@keyframes ag-glow { 50% { opacity: .95; transform: scale(1.08); } }
 @keyframes ag-spin { to { transform: rotate(360deg); } }
-@keyframes ag-bit { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-78px); } }
-@keyframes ag-happy { 0% { transform: scale(1); } 40% { transform: scale(1.25) translateY(-3px); } 100% { transform: scale(1.1) translateY(-2px); } }
+@keyframes ag-bit { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-190px); } }
+@keyframes ag-happy { 0% { transform: scale(1); } 40% { transform: scale(1.22) translateY(-10px); } 100% { transform: scale(1.1) translateY(-4px); } }
 
 /* ---------- Resultado ---------- */
 .au-result { display: flex; flex-direction: column; gap: 28px; max-width: 1000px; padding-block: 24px 40px; }
@@ -163,5 +181,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .au-agent *, .au-agent[data-state] * { animation: none !important; }
-  .au-agent[data-state="working"] .ag-code { opacity: .3; }
+  .au-agent[data-state="working"] .ag-scan { opacity: 0; }
+  .au-flow { transition: none; }
 }

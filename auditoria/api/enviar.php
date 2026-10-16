@@ -58,6 +58,8 @@ try {
 
 function score_row(array $audit): string
 {
+    // Sin mediciones de Google no se muestra la fila (serían cuatro guiones)
+    if (empty($audit['psi']['scores'])) return '';
     $labels = ['rendimiento' => 'Rendimiento', 'seo' => 'SEO', 'accesibilidad' => 'Accesibilidad', 'buenas_practicas' => 'Buenas prácticas'];
     $cells = '';
     foreach ($labels as $k => $label) {
@@ -92,7 +94,8 @@ function email_html(array $audit, string $report): string
         . ' <a href="https://dl-dev.com/#contacto" style="display:inline-block;margin-left:8px;padding:12px 18px;color:#bfe8a6;font:600 15px/1 Arial,sans-serif;text-decoration:none;">o desde la web →</a>'
         . '</div></td></tr>'
         . '<tr><td style="padding:18px 28px 26px;font:12px/1.6 Arial,sans-serif;color:#7a857f;border-top:1px solid #e3e8e5;">'
-        . 'Recibes este email porque pediste el informe en dl-dev.com/auditoria. Mediciones de velocidad: Google PageSpeed Insights (móvil). '
+        . 'Recibes este email porque pediste el informe en dl-dev.com/auditoria. '
+        . (empty($audit['psi']['scores']) ? '' : 'Mediciones de velocidad: Google PageSpeed Insights (móvil). ')
         . 'Texto redactado con inteligencia artificial a partir de los datos medidos. '
         . '<a href="https://dl-dev.com/privacidad.html" style="color:#4a7d2c;">Política de privacidad</a>. Para no recibir más mensajes, responde a este email con «baja».'
         . '</td></tr></table></td></tr></table></body></html>';

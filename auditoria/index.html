@@ -25,7 +25,7 @@
   <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../styles.css?v=20261016c">
-  <link rel="stylesheet" href="auditoria.css?v=20261016c">
+  <link rel="stylesheet" href="auditoria.css?v=20261016e">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -75,102 +75,56 @@
     <!-- ============ El agente trabajando ============ -->
     <section class="au-stage" aria-label="Progreso de la auditoría">
       <div class="au-agent-wrap">
-        <svg class="au-agent" data-agent data-state="idle" viewBox="0 0 360 400" role="img" aria-label="Agente de auditoría de Digital Lab">
-          <defs>
-            <linearGradient id="ag-hood" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#17232c"/><stop offset=".6" stop-color="#0b1116"/><stop offset="1" stop-color="#05080b"/>
-            </linearGradient>
-            <linearGradient id="ag-rim" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#22d3ee" stop-opacity=".55"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
-            </linearGradient>
-            <radialGradient id="ag-visor" cx=".5" cy=".38" r=".7">
-              <stop offset="0" stop-color="#0f1c24"/><stop offset="1" stop-color="#020406"/>
-            </radialGradient>
-            <linearGradient id="ag-eye" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#5ad41c"/>
-            </linearGradient>
-            <linearGradient id="ag-lid" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#26313a"/><stop offset="1" stop-color="#11181e"/>
-            </linearGradient>
-            <radialGradient id="ag-desk" cx=".5" cy=".5" r=".5">
-              <stop offset="0" stop-color="#22d3ee" stop-opacity=".45"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
-            </radialGradient>
-            <radialGradient id="ag-face-light" cx=".5" cy="1" r=".9">
-              <stop offset="0" stop-color="#5ad41c" stop-opacity=".35"/><stop offset="1" stop-color="#5ad41c" stop-opacity="0"/>
-            </radialGradient>
-            <filter id="ag-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="b"/>
-              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-            <filter id="ag-soft" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="7"/>
-            </filter>
-            <clipPath id="ag-visor-clip"><ellipse cx="180" cy="184" rx="60" ry="56"/></clipPath>
-          </defs>
-
-          <ellipse class="ag-desk" cx="180" cy="388" rx="160" ry="18" fill="url(#ag-desk)"/>
-
-          <g class="ag-body">
-            <path class="ag-rim-glow" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392" fill="none" stroke="#22d3ee" stroke-width="10" opacity=".25" filter="url(#ag-soft)"/>
-            <path class="ag-hood" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392Z" fill="url(#ag-hood)"/>
-            <path class="ag-rim" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392" fill="none" stroke="url(#ag-rim)" stroke-width="2.5" filter="url(#ag-glow)"/>
-            <path class="ag-opening" d="M180 98C226 98 254 136 254 180C254 228 224 258 180 258C136 258 106 228 106 180C106 136 134 98 180 98Z" fill="#030608" stroke="#22d3ee" stroke-opacity=".3" stroke-width="1.5"/>
-            <path class="ag-cord" d="M162 262L157 304M198 262L203 304" stroke="#22303a" stroke-width="3" stroke-linecap="round"/>
-            <circle cx="157" cy="306" r="3.5" fill="#22d3ee" opacity=".7"/>
-            <circle cx="203" cy="306" r="3.5" fill="#22d3ee" opacity=".7"/>
-
-            <g class="ag-head">
-              <ellipse class="ag-visor" cx="180" cy="184" rx="60" ry="56" fill="url(#ag-visor)"/>
-              <ellipse class="ag-face-light" cx="180" cy="200" rx="58" ry="40" fill="url(#ag-face-light)"/>
-              <!-- reflejo de código en el visor mientras trabaja -->
-              <g clip-path="url(#ag-visor-clip)">
-                <g class="ag-code">
-                  <rect x="128" y="140" width="38" height="3" rx="1.5"/><rect x="172" y="140" width="22" height="3" rx="1.5"/>
-                  <rect x="136" y="152" width="58" height="3" rx="1.5"/><rect x="200" y="152" width="26" height="3" rx="1.5"/>
-                  <rect x="128" y="164" width="30" height="3" rx="1.5"/><rect x="164" y="164" width="46" height="3" rx="1.5"/>
-                  <rect x="140" y="212" width="50" height="3" rx="1.5"/><rect x="196" y="212" width="24" height="3" rx="1.5"/>
-                  <rect x="130" y="224" width="36" height="3" rx="1.5"/><rect x="172" y="224" width="40" height="3" rx="1.5"/>
-                  <rect x="128" y="236" width="58" height="3" rx="1.5"/><rect x="192" y="236" width="20" height="3" rx="1.5"/>
-                  <rect x="128" y="248" width="38" height="3" rx="1.5"/><rect x="172" y="248" width="22" height="3" rx="1.5"/>
-                  <rect x="136" y="260" width="58" height="3" rx="1.5"/><rect x="200" y="260" width="26" height="3" rx="1.5"/>
-                </g>
+        <div class="au-agent" data-agent data-state="idle" role="img" aria-label="Agente de auditoría de Digital Lab: un robot encapuchado que trabaja con su portátil">
+          <span class="ag-aura" aria-hidden="true"></span>
+          <div class="ag-body">
+            <img class="ag-img" src="agente.webp?v=20261016d" width="640" height="640" alt="" decoding="async" fetchpriority="high">
+            <!-- Capa animada sobre la imagen (mismas coordenadas que el original de 1254 px) -->
+            <svg class="ag-fx" viewBox="0 0 1254 1254" aria-hidden="true" focusable="false">
+              <defs>
+                <filter id="ag-glow" x="-60%" y="-120%" width="220%" height="340%">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="16" result="wide"/>
+                  <feFlood flood-color="#9b2cff"/><feComposite in2="wide" operator="in" result="g1"/>
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="near"/>
+                  <feFlood flood-color="#e27cff"/><feComposite in2="near" operator="in" result="g2"/>
+                  <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="g2"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <filter id="ag-glow-err" x="-60%" y="-120%" width="220%" height="340%">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="wide"/>
+                  <feFlood flood-color="#ff6a3d"/><feComposite in2="wide" operator="in" result="g1"/>
+                  <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <clipPath id="ag-visor"><ellipse cx="640" cy="570" rx="246" ry="148"/></clipPath>
+                <linearGradient id="ag-scan-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#c86bff" stop-opacity="0"/>
+                  <stop offset=".5" stop-color="#efc2ff" stop-opacity=".5"/>
+                  <stop offset="1" stop-color="#c86bff" stop-opacity="0"/>
+                </linearGradient>
+                <radialGradient id="ag-halo-grad">
+                  <stop offset="0" stop-color="#f6b8ff" stop-opacity=".95"/>
+                  <stop offset=".4" stop-color="#bb4dff" stop-opacity=".4"/>
+                  <stop offset="1" stop-color="#7a2bff" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <g clip-path="url(#ag-visor)">
+                <g class="ag-code"><rect x="433" y="420" width="50" height="9" rx="4.5"/><rect x="513" y="420" width="103" height="9" rx="4.5"/><rect x="449" y="450" width="43" height="9" rx="4.5"/><rect x="513" y="450" width="51" height="9" rx="4.5"/><rect x="596" y="450" width="96" height="9" rx="4.5"/><rect x="724" y="450" width="25" height="9" rx="4.5"/><rect x="427" y="480" width="70" height="9" rx="4.5"/><rect x="516" y="480" width="24" height="9" rx="4.5"/><rect x="567" y="480" width="36" height="9" rx="4.5"/><rect x="638" y="480" width="68" height="9" rx="4.5"/><rect x="448" y="510" width="88" height="9" rx="4.5"/><rect x="561" y="510" width="58" height="9" rx="4.5"/><rect x="642" y="510" width="89" height="9" rx="4.5"/><rect x="443" y="540" width="74" height="9" rx="4.5"/><rect x="533" y="540" width="48" height="9" rx="4.5"/><rect x="616" y="540" width="72" height="9" rx="4.5"/><rect x="711" y="540" width="26" height="9" rx="4.5"/><rect x="415" y="570" width="56" height="9" rx="4.5"/><rect x="490" y="570" width="37" height="9" rx="4.5"/><rect x="543" y="570" width="45" height="9" rx="4.5"/><rect x="419" y="600" width="72" height="9" rx="4.5"/><rect x="526" y="600" width="75" height="9" rx="4.5"/><rect x="622" y="600" width="25" height="9" rx="4.5"/><rect x="420" y="630" width="63" height="9" rx="4.5"/><rect x="512" y="630" width="71" height="9" rx="4.5"/><rect x="608" y="630" width="67" height="9" rx="4.5"/><rect x="698" y="630" width="83" height="9" rx="4.5"/><rect x="420" y="660" width="85" height="9" rx="4.5"/><rect x="519" y="660" width="68" height="9" rx="4.5"/><rect x="613" y="660" width="45" height="9" rx="4.5"/><rect x="689" y="660" width="97" height="9" rx="4.5"/><rect x="422" y="690" width="30" height="9" rx="4.5"/><rect x="480" y="690" width="102" height="9" rx="4.5"/><rect x="445" y="720" width="54" height="9" rx="4.5"/><rect x="532" y="720" width="85" height="9" rx="4.5"/><rect x="423" y="750" width="26" height="9" rx="4.5"/><rect x="482" y="750" width="103" height="9" rx="4.5"/><rect x="431" y="780" width="34" height="9" rx="4.5"/><rect x="485" y="780" width="98" height="9" rx="4.5"/><rect x="603" y="780" width="63" height="9" rx="4.5"/><rect x="696" y="780" width="77" height="9" rx="4.5"/></g>
+                <rect class="ag-scan" x="380" y="330" width="520" height="110" fill="url(#ag-scan-grad)"/>
               </g>
               <g class="ag-eyes" filter="url(#ag-glow)">
-                <path class="ag-eye" d="M149 188Q160.5 172 172 188"/>
-                <path class="ag-eye" d="M188 188Q199.5 172 211 188"/>
+                <path class="ag-eye" d="M442 607Q499 535 556 607"/>
+                <path class="ag-eye" d="M701 607Q757.5 535 814 607"/>
               </g>
-            </g>
-          </g>
-
-          <!-- manos que teclean detrás del portátil -->
-          <ellipse class="ag-hand ag-hand--l" cx="106" cy="334" rx="17" ry="11"/>
-          <ellipse class="ag-hand ag-hand--r" cx="254" cy="334" rx="17" ry="11"/>
-
-          <!-- datos que suben del portátil -->
-          <g class="ag-bits">
-            <rect x="124" y="270" width="6" height="6"/><rect x="146" y="270" width="5" height="5"/>
-            <rect x="168" y="270" width="6" height="6"/><rect x="190" y="270" width="5" height="5"/>
-            <rect x="212" y="270" width="6" height="6"/><rect x="232" y="270" width="5" height="5"/>
-            <rect x="136" y="270" width="4" height="4"/><rect x="222" y="270" width="4" height="4"/>
-          </g>
-
-          <!-- portátil con el ojo de Digital Lab -->
-          <rect class="ag-lid" x="102" y="276" width="156" height="98" rx="10" fill="url(#ag-lid)" stroke="#7fa8b4" stroke-opacity=".35"/>
-          <path class="ag-base" d="M86 374H274L288 388H72Z" fill="#2b363f"/>
-          <svg class="ag-logo" x="152" y="298" width="56" height="56" viewBox="56 72 394 396" overflow="visible">
-            <circle class="ag-logo-halo" cx="265" cy="280" r="190" fill="#5ad41c" opacity=".12" filter="url(#ag-soft)"/>
-            <g fill="none" stroke-width="22" stroke-linecap="round">
-              <path class="ag-logo-outer" d="M265 108A172 172 0 1 1 96 248" stroke="#5ad41c"/>
-              <path class="ag-logo-inner" d="M168 203A124 124 0 1 0 348 188" stroke="#22d3ee"/>
-            </g>
-            <g fill="#a6ff57"><circle cx="265" cy="108" r="28"/><circle cx="96" cy="248" r="28"/><circle cx="168" cy="203" r="28"/><circle cx="348" cy="188" r="28"/></g>
-            <circle class="ag-logo-iris" cx="269" cy="275" r="44" fill="#5ad41c"/>
-            <circle cx="286" cy="259" r="17" fill="#fff"/>
-          </svg>
-        </svg>
+              <rect class="ag-screen" x="240" y="790" width="770" height="372" rx="22"/>
+              <circle class="ag-halo" cx="628" cy="982" r="155" fill="url(#ag-halo-grad)"/>
+              <circle class="ag-orbit" cx="628" cy="982" r="132"/>
+              <circle class="ag-orbit ag-orbit--in" cx="628" cy="982" r="74"/>
+              <g class="ag-bits"><rect x="330" y="800" width="14" height="14" rx="3"/><rect x="420" y="790" width="10" height="10" rx="3"/><rect x="505" y="805" width="16" height="16" rx="3"/><rect x="600" y="788" width="12" height="12" rx="3"/><rect x="690" y="800" width="14" height="14" rx="3"/><rect x="775" y="792" width="10" height="10" rx="3"/><rect x="850" y="806" width="16" height="16" rx="3"/><rect x="930" y="796" width="12" height="12" rx="3"/></g>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      <!-- Los datos fluyen por los hilos mientras el agente trabaja -->
+      <!-- Los datos fluyen por los hilos solo mientras el agente trabaja -->
       <div class="au-flow" data-flow>
         <canvas class="au-canvas" aria-hidden="true"></canvas>
       </div>
@@ -241,7 +195,7 @@
     </div>
   </footer>
 
-  <script src="../js/hero-animation.js?v=20261016c"></script>
-  <script src="auditoria.js?v=20261016c"></script>
+  <script src="../js/hero-animation.js?v=20261016d"></script>
+  <script src="auditoria.js?v=20261016f"></script>
 </body>
 </html>

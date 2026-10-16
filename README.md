@@ -66,7 +66,7 @@ No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` 
 
 ## Auditoría web (`/auditoria/`)
 
-El visitante pega una URL y el agente la revisa: nuestro servidor comprueba seguridad y SEO (`api/revisar.php`), el navegador mide la velocidad con Google PageSpeed Insights, y Claude redacta un resumen (`api/informe.php`). Si deja su email, recibe un informe detallado (`api/enviar.php`). Con `?demo` al final de la dirección se ve una simulación sin gastar nada.
+El visitante pega una URL y el agente la revisa: nuestro servidor comprueba seguridad y SEO (`api/revisar.php`), el navegador mide la velocidad con Google PageSpeed Insights, y Claude redacta un resumen (`api/informe.php`). Si deja su email, recibe un informe detallado (`api/enviar.php`). Con `?demo` al final de la dirección se ve una simulación sin gastar nada. En GitHub Pages la página funciona siempre en ese modo, porque Pages no ejecuta PHP.
 
 **Requisitos:** PHP 8.1 o superior con `curl`, `mbstring` y `dom` (en Hostinger vienen activadas), y la función `mail()`.
 

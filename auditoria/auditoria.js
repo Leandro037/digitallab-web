@@ -12,7 +12,9 @@
   const q = (s, r = document) => r.querySelector(s);
   const qa = (s, r = document) => [...r.querySelectorAll(s)];
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const DEMO = new URLSearchParams(location.search).has('demo');
+  // Demostración: con ?demo, o en GitHub Pages (PRE), donde no hay PHP
+  const DEMO = new URLSearchParams(location.search).has('demo') || location.hostname.endsWith('github.io');
+  const DEMO_NOTE = 'Modo demostración: los resultados son de ejemplo y no se analiza tu web de verdad.';
   const API = 'api/';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -20,17 +22,31 @@
   const msg = q('[data-msg]'), agent = q('[data-agent]'), steps = q('[data-steps]'), timer = q('[data-timer]');
   const result = q('[data-result]'), mailForm = q('[data-mail-form]'), mailMsg = q('[data-mail-msg]');
   let auditId = null, busy = false;
+  if (DEMO) showMsg(msg, DEMO_NOTE, true);
 
   /* ---------- Hilos de datos (la misma animación del hero) ---------- */
   let flow = null;
   const canvas = q('.au-canvas');
   if (canvas && window.DigitalLabHero) {
-    flow = DigitalLabHero.mount(canvas, { density: 0.8, activity: 0.7, seed: 23, beams: true });
+    flow = DigitalLabHero.mount(canvas, { density: 0.8, activity: 3.4, seed: 23, beams: true });
+    if (flow.setPaused) flow.setPaused(true);
+  }
+
+  // Los hilos solo se ven (y solo se animan) mientras el agente analiza una web
+  const flowBox = q('[data-flow]');
+  const FLOW_MS = 850;
+  let flowTimer = 0;
+  function showFlow(on) {
+    if (!flowBox) return;
+    clearTimeout(flowTimer);
+    flowBox.classList.toggle('is-on', on);
+    if (!flow || !flow.setPaused) return;
+    if (on) flow.setPaused(false);
+    else flowTimer = setTimeout(() => flow.setPaused(true), FLOW_MS);
   }
 
   function setState(state) {
     agent.dataset.state = state;
-    if (flow && flow.setActivity) flow.setActivity(state === 'working' ? 3.4 : state === 'done' ? 1 : 0.7);
   }
 
   function setStep(name, status) {
@@ -101,7 +117,12 @@
     const t = setTimeout(() => ctl.abort(), 75000);
     try {
       const r = await fetch('https://www.googleapis.com/pagespeedonline/v5/runPagespeed?' + params, { signal: ctl.signal });
-      if (!r.ok) return null;
+      if (!r.ok) {
+        // p. ej. clave restringida a otro dominio o cuota agotada: se sigue sin datos de velocidad
+        const err = await r.json().catch(() => ({}));
+        console.warn('PageSpeed no disponible:', r.status, (err.error && err.error.message) || '');
+        return null;
+      }
       return compactPsi(await r.json());
     } catch (e) { return null; } finally { clearTimeout(t); }
   }
@@ -245,13 +266,14 @@
     busy = true;
     btn.disabled = true;
     btnLabel.textContent = 'Analizando…';
-    showMsg(msg, '');
+    showMsg(msg, DEMO ? DEMO_NOTE : '', true);
     result.hidden = true;
     steps.hidden = false;
     qa('li', steps).forEach((li) => li.classList.remove('is-active', 'is-done', 'is-skip'));
     setState('working');
+    showFlow(true);
     startTimer();
-    if (!reduce) q('.au-stage').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!reduce) q('.au-agent-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
       // 1. Revisión desde nuestro servidor
@@ -288,11 +310,14 @@
       renderChecks(r1.checks, psi);
       result.hidden = false;
       setState('done');
+      showFlow(false);
       stopTimer(`Listo en ${Math.round((performance.now() - t0) / 1000)} s`);
       showMsg(mailMsg, '');
-      if (!reduce) setTimeout(() => result.scrollIntoView({ behavior: 'smooth', block: 'start' }), 700);
+      // primero se recogen los hilos y luego se baja al resultado, para que la página no salte
+      if (!reduce) setTimeout(() => result.scrollIntoView({ behavior: 'smooth', block: 'start' }), FLOW_MS + 150);
     } catch (e) {
       setState('error');
+      showFlow(false);
       stopTimer('');
       steps.hidden = true;
       showMsg(msg, errText(e));
@@ -331,7 +356,8 @@
     try {
       if (DEMO) await sleep(2200);
       else await post('enviar.php', { id: auditId, email, consent: true, web: '' }, 90000);
-      showMsg(mailMsg, `¡Listo! Te enviamos el informe detallado a ${email}. Revisa también la carpeta de spam.`, true);
+      showMsg(mailMsg, DEMO ? `Demostración: en la web publicada, el informe detallado llegaría a ${email}.`
+        : `¡Listo! Te enviamos el informe detallado a ${email}. Revisa también la carpeta de spam.`, true);
       mailForm.elements.email.value = '';
       mailForm.elements.consent.checked = false;
     } catch (err) {

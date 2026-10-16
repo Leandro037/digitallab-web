@@ -354,12 +354,18 @@ function claude_text(string $system, string $user, int $maxTokens, string $effor
             continue;
         }
         if ($netError || $status !== 200) {
-            $type = is_string($raw) ? (json_decode($raw, true)['error']['type'] ?? '') : '';
-            error_log("Digital Lab auditoría: error de la IA ($status $type)");
+            // Tipo y mensaje del error de la API (nunca incluyen la clave) + id de la petición para el soporte de Anthropic
+            $err = is_string($raw) ? (json_decode($raw, true)['error'] ?? []) : [];
+            $detail = trim(($err['type'] ?? '') . ' ' . mb_substr((string) ($err['message'] ?? ''), 0, 200));
+            error_log("Digital Lab auditoría: error de la IA ($status" . ($netError ? ", red $netError" : '') . ") $detail"
+                . (isset($respHeaders['request-id']) ? ' [' . $respHeaders['request-id'] . ']' : ''));
             throw new AuditError('ia_no_disponible', 502);
         }
         $msg = json_decode((string) $raw, true);
-        if (($msg['stop_reason'] ?? '') === 'refusal') throw new AuditError('ia_no_disponible', 502);
+        if (($msg['stop_reason'] ?? '') === 'refusal') {
+            error_log('Digital Lab auditoría: la IA declinó la petición');
+            throw new AuditError('ia_no_disponible', 502);
+        }
         $text = '';
         foreach ($msg['content'] ?? [] as $block) {
             if (($block['type'] ?? '') === 'text') $text .= $block['text'];

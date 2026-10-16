@@ -132,7 +132,7 @@
     let nodes = [], drops = [], pulses = [], bursts = [];
     let bandR = null, lineX = null, ext = [], linePulses = [], lineAcc = 0;
 
-    let T = 0, last = 0, raf = 0, rzRaf = 0, running = false, inView = true;
+    let T = 0, last = 0, raf = 0, rzRaf = 0, running = false, inView = true, paused = false;
     let pulseAcc = 0, par = 0, act = o.activity;
     const mouse = { x: -1e4, y: -1e4, on: false, moved: false, lastInject: 0 };
     const perf = { sum: 0, n: 0 };
@@ -735,7 +735,7 @@
     }
 
     function sync() {
-      const go = inView && !document.hidden && !motionQuery.matches;
+      const go = inView && !paused && !document.hidden && !motionQuery.matches;
       if (go && !running) {
         running = true;
         last = performance.now();
@@ -782,6 +782,8 @@
     return {
       // Cambia el ritmo de los datos sin recomponer la escena
       setActivity(a) { o.activity = Math.max(0.1, a); },
+      // Detiene o reanuda la animación (p. ej. mientras está oculta)
+      setPaused(p) { paused = !!p; sync(); },
       // Cambia opciones en caliente (p. ej. activar el modo integrado) y recompone la escena
       setOptions(next) {
         Object.assign(o, next);
