@@ -1,5 +1,23 @@
 /* Digital Lab · landing
    Oscura y técnica: los hilos de luz del hero bajan por la página y unen las secciones. */
+/* Tipografías alojadas en el propio dominio, sin llamadas a Google (licencia SIL OFL: fonts/OFL.txt) */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url(fonts/space-grotesk-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url(fonts/jetbrains-mono-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --bg: #03070a;
   --surface: #070d10;
@@ -755,6 +773,52 @@ h2 {
   font-size: 14px;
 }
 .footer__bottom a { color: var(--muted); text-decoration: none; }
+.footer__bottom a:hover { color: var(--text); }
+.footer__legal { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+
+/* ---------- Formulario: consentimiento e información de privacidad ---------- */
+.form__trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.field--check { flex-direction: row; align-items: flex-start; gap: 12px; cursor: pointer; }
+.field--check input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--green); cursor: pointer; }
+.field--check span { color: var(--muted); font: 400 14.5px/1.5 var(--display); letter-spacing: 0; text-transform: none; }
+.field--check a, .form__legal a { color: var(--soft); }
+.field--check.is-invalid span { color: var(--warn); }
+.form__legal { margin: -4px 0 0; color: var(--faint); font-size: 12.5px; line-height: 1.6; }
+.form__legal b { color: var(--muted); font-weight: 500; }
+
+/* ---------- Páginas legales ---------- */
+.legal-top { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--line); background: rgba(3, 7, 10, .85); backdrop-filter: blur(12px); }
+.legal-top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 18px; }
+.legal-top a { color: var(--text); font: 700 18px/1 var(--mono); letter-spacing: .08em; text-decoration: none; }
+.legal-top a span { color: var(--green); }
+.legal { max-width: 780px; padding-block: 64px 96px; }
+.legal h1 { margin: 18px 0 10px; font-size: clamp(32px, 5vw, 48px); font-weight: 600; line-height: 1.1; letter-spacing: -.03em; }
+.legal__updated { margin: 0 0 44px; color: var(--faint); font: 500 13px/1.4 var(--mono); }
+.legal h2 { margin: 44px 0 14px; font-size: clamp(21px, 2.6vw, 26px); letter-spacing: -.01em; }
+.legal h3 { margin: 26px 0 10px; font-size: 18px; font-weight: 600; }
+.legal p, .legal li { color: var(--muted); line-height: 1.7; }
+.legal p { margin: 0 0 14px; }
+.legal ul { margin: 0 0 16px; padding-left: 22px; }
+.legal li { margin-bottom: 6px; }
+.legal a { color: var(--soft); }
+.legal strong { color: var(--text); font-weight: 600; }
+.legal .todo { padding: 1px 6px; border-radius: 6px; background: rgba(255, 154, 106, .16); color: #ffc2a3; font: 500 .9em/1.4 var(--mono); }
+.legal__table { width: 100%; margin: 6px 0 18px; border-collapse: collapse; font-size: 14.5px; }
+.legal__table th, .legal__table td { padding: 12px 14px; border: 1px solid var(--line-2); color: var(--muted); text-align: left; vertical-align: top; }
+.legal__table th { color: var(--text); font-weight: 600; background: rgba(255, 255, 255, .03); }
+.legal__box { margin: 18px 0; padding: 18px 20px; border: 1px solid rgba(90, 212, 28, .3); border-radius: 16px; background: rgba(90, 212, 28, .05); }
+.legal__box p:last-child { margin-bottom: 0; }
+.legal-foot { padding-block: 28px 40px; border-top: 1px solid var(--line); color: var(--faint); font-size: 14px; }
+.legal-foot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
+.legal-foot a { color: var(--muted); text-decoration: none; }
+.legal-foot a:hover, .legal-foot a[aria-current="page"] { color: var(--text); }
+.legal-foot nav { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+@media (max-width: 760px) {
+  .legal__table, .legal__table tbody, .legal__table tr, .legal__table td, .legal__table th { display: block; width: 100%; }
+  .legal__table thead { display: none; }
+  .legal__table td { border-top: 0; }
+  .legal__table tr td:first-child { border-top: 1px solid var(--line-2); color: var(--text); font-weight: 600; }
+}
 .footer__bottom a:hover { color: var(--text); }
 
 /* ---------- Aparición al hacer scroll (parte de un estado visible, nunca de 0) ---------- */

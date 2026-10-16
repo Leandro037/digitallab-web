@@ -843,16 +843,20 @@
     const note = q('[data-form-note]', form);
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      // Campo trampa relleno: lo envió un robot, se descarta sin avisar
+      if (form.elements.web && form.elements.web.value) return;
       let ok = true;
       qa('[required]', form).forEach((f) => {
-        const bad = !f.value.trim() || (f.type === 'email' && !/^\S+@\S+\.\S+$/.test(f.value.trim()));
+        const bad = f.type === 'checkbox'
+          ? !f.checked
+          : !f.value.trim() || (f.type === 'email' && !/^\S+@\S+\.\S+$/.test(f.value.trim()));
         f.closest('.field').classList.toggle('is-invalid', bad);
         if (bad) ok = false;
       });
       note.hidden = false;
       note.textContent = ok
         ? 'Este formulario es una maqueta y todavía no envía mensajes. Cuando lo conectes a tu correo o CRM, aquí aparecerá la confirmación.'
-        : 'Revisa los campos marcados: nombre, un email válido y tu mensaje.';
+        : 'Revisa los campos marcados: nombre, un email válido, tu mensaje y la aceptación de la política de privacidad.';
     });
   }
 

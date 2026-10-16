@@ -7,7 +7,12 @@ Sitio estático (HTML, CSS y JavaScript sin dependencias ni paso de compilación
 
 ```
 index.html            Página completa
+aviso-legal.html      Aviso legal (titular y condiciones de uso)
+privacidad.html       Política de privacidad (Ley 25.326 y RGPD)
+cookies.html          Política de cookies (no hay cookies; almacenamiento local del panel)
+404.html              Página de error
 styles.css            Estilos
+fonts/                Tipografías alojadas en el dominio (licencia OFL en fonts/OFL.txt)
 js/hero-animation.js  Animación del hero: matriz de datos, hilos de luz y nodos
 js/logo-animations.js Ojo digital animado del logo («Hilo de luz»)
 js/text-build.js      Títulos que se construyen con cuadraditos («lluvia de datos»)
@@ -29,7 +34,8 @@ y entra en http://localhost:8000.
 
 - **WhatsApp:** número y mensaje inicial en `js/landing.js` (`WHATSAPP_NUMBER` y `WHATSAPP_MESSAGE`).
 - **Imágenes del carrusel:** reemplaza los archivos de `img/` manteniendo los nombres; se recortan al centro para llenar el recuadro (16:9 en escritorio, 4:5 en móvil).
-- **Formulario de contacto:** es una maqueta y todavía no envía mensajes; hay que conectarlo a un correo o CRM.
+- **Formulario de contacto:** es una maqueta y todavía no envía mensajes; hay que conectarlo a un correo o CRM. Ya incluye la casilla de consentimiento, la información básica de privacidad, límites de longitud y un campo trampa (`web`) contra el spam: el servicio que lo reciba debe validar los datos en el servidor y descartar los envíos con ese campo relleno.
+- **Textos legales:** completa los datos marcados como `[COMPLETAR]` en `aviso-legal.html` y `privacidad.html` (titular, CUIT, domicilio, email, jurisdicción, proveedor de correo).
 - **Panel «Tu visita en datos»:** se calcula en el navegador del visitante y no envía datos a ningún sitio.
   La ubicación es aproximada (zona horaria e idioma); para ciudad exacta por IP hace falta un servicio externo.
 
@@ -37,9 +43,24 @@ Las animaciones respetan la opción «reducir movimiento» del sistema.
 
 ## Publicar en dl-dev.com (Hostinger)
 
-1. Sube **todo** el contenido de esta carpeta a `public_html`, incluidos `.htaccess`, `robots.txt`, `sitemap.xml`, `404.html`, los iconos y `og-image.jpg`.
-2. Cada vez que cambies `styles.css` o algo de `js/`, cambia el número `?v=20261016` en `index.html` (por ejemplo, a la fecha del día) para que los visitantes reciban la versión nueva.
+Sube a `public_html` estos archivos y carpetas, respetando la estructura:
+
+```
+.htaccess            404.html          aviso-legal.html   cookies.html
+index.html           privacidad.html   robots.txt         sitemap.xml
+site.webmanifest     styles.css        favicon.ico        favicon.svg
+apple-touch-icon.png icon-192.png      icon-512.png       og-image.jpg
+fonts/   (2 .woff2 + OFL.txt)
+img/     (6 .webp)
+js/      (4 .js)
+```
+
+No hace falta subir `README.md`, `.nojekyll` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
+
+1. `.htaccess` es un archivo oculto: activa «mostrar archivos ocultos» en el administrador de archivos o en el cliente FTP para comprobar que se subió.
+2. Cada vez que cambies `styles.css` o algo de `js/`, cambia el sufijo `?v=…` en `index.html` (y en las páginas legales, para `styles.css`) para que los visitantes reciban la versión nueva.
 3. Si cambias el contenido, actualiza `<lastmod>` en `sitemap.xml`.
+4. Tras subir, comprueba que `https://www.dl-dev.com` redirige a `https://dl-dev.com` y que la web carga sin errores en la consola del navegador.
 
 ## SEO
 
@@ -48,3 +69,15 @@ Las animaciones respetan la opción «reducir movimiento» del sistema.
 - Datos estructurados (schema.org) de la empresa, el sitio y los seis servicios en el `<head>`.
 - Iconos: `favicon.ico`, `favicon.svg`, `apple-touch-icon.png` e `icon-192/512.png` (manifiesto en `site.webmanifest`).
 - Tras publicar: da de alta `dl-dev.com` en Google Search Console y envía `https://dl-dev.com/sitemap.xml`.
+
+## Seguridad
+
+- `.htaccess` añade cabeceras de seguridad: HSTS (siempre HTTPS), una política de contenido (CSP) que solo permite recursos del propio dominio, bloqueo de inserción en marcos de otras webs (`frame-ancestors 'none'`), `nosniff`, política de referente y permisos del navegador desactivados (cámara, micrófono, ubicación…).
+- Bloquea el acceso a carpetas y archivos internos (`.git`, `.md`, copias de seguridad…) y desactiva el listado de carpetas.
+- No se carga código ni recursos de terceros: si en el futuro se añade analítica, un chat o el envío del formulario a otro dominio, hay que ampliar la CSP (`script-src`, `connect-src`, `form-action`).
+
+## Protección de datos
+
+- Sin cookies, sin analítica y sin conexiones a terceros (tipografías propias).
+- El panel «Tu visita en datos» se calcula en el navegador; solo guarda el contador de visitas en el almacenamiento local (`dl-visitas`, `dl-sesion`), documentado en `cookies.html`.
+- Textos legales para la Ley 25.326 (incluida la leyenda obligatoria de la AAIP) y el RGPD para clientes de la UE.

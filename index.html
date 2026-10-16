@@ -31,11 +31,11 @@
   <meta name="twitter:description" content="Convertimos tus datos en inteligencia. Agentes IA, automatizaciones, visión por computadora, software a medida y XR para tu empresa.">
   <meta name="twitter:image" content="https://dl-dev.com/og-image.jpg">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Tipografías propias (sin Google Fonts): se precargan para que el texto aparezca antes -->
+  <link rel="preload" href="fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <!-- ?v= obliga a los navegadores a descargar la versión nueva tras cada cambio (súbelo al publicar) -->
-  <link rel="stylesheet" href="styles.css?v=20261016">
+  <link rel="stylesheet" href="styles.css?v=20261016b">
 
   <!-- Datos estructurados para buscadores (schema.org) -->
   <script type="application/ld+json">
@@ -470,17 +470,17 @@
             <div class="form__row">
               <label class="field">
                 <span>Nombre</span>
-                <input id="f-nombre" name="nombre" type="text" autocomplete="name" required>
+                <input id="f-nombre" name="nombre" type="text" autocomplete="name" maxlength="100" required>
               </label>
               <label class="field">
                 <span>Email</span>
-                <input id="f-email" name="email" type="email" autocomplete="email" required>
+                <input id="f-email" name="email" type="email" autocomplete="email" maxlength="254" required>
               </label>
             </div>
             <div class="form__row">
               <label class="field">
                 <span>Empresa</span>
-                <input id="f-empresa" name="empresa" type="text" autocomplete="organization">
+                <input id="f-empresa" name="empresa" type="text" autocomplete="organization" maxlength="120">
               </label>
               <label class="field">
                 <span>¿Qué te interesa?</span>
@@ -497,8 +497,21 @@
             </div>
             <label class="field">
               <span>Cuéntanos tu reto</span>
-              <textarea id="f-mensaje" name="mensaje" rows="4" required></textarea>
+              <textarea id="f-mensaje" name="mensaje" rows="4" maxlength="3000" required></textarea>
             </label>
+            <!-- Campo trampa contra el spam: las personas no lo ven; si llega relleno, el envío se descarta -->
+            <div class="form__trap" aria-hidden="true">
+              <label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label>
+            </div>
+            <label class="field field--check">
+              <input id="f-privacidad" name="privacidad" type="checkbox" required>
+              <span>He leído la <a href="privacidad.html">política de privacidad</a> y acepto que usen mis datos para responder a mi consulta.</span>
+            </label>
+            <p class="form__legal">
+              <b>Responsable:</b> Digital Lab. <b>Finalidad:</b> responder a tu consulta y, si lo pides, preparar una propuesta.
+              <b>Legitimación:</b> tu consentimiento. <b>Destinatarios:</b> no se ceden a terceros, salvo obligación legal.
+              <b>Derechos:</b> acceso, rectificación, supresión y los demás que explica la <a href="privacidad.html">política de privacidad</a>.
+            </p>
             <button class="btn btn--primary" type="submit">
               Enviar mensaje
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
@@ -538,13 +551,18 @@
     </div>
     <div class="wrap footer__bottom">
       <span>© 2026 Digital Lab</span>
+      <nav class="footer__legal" aria-label="Información legal">
+        <a href="aviso-legal.html">Aviso legal</a>
+        <a href="privacidad.html">Privacidad</a>
+        <a href="cookies.html">Cookies</a>
+      </nav>
       <a href="#inicio">Volver arriba ↑</a>
     </div>
   </footer>
 
   <!-- ============ WhatsApp (siempre visible) ============ -->
   <div class="wa" data-wa>
-    <a class="wa-neon" href="https://wa.me/5493496532749?text=Hola%20Digital%20Lab%2C%20me%20gustar%C3%ADa%20hablar%20sobre%20un%20proyecto." data-wa-link target="_blank" rel="noopener" aria-label="Escribir a Digital Lab por WhatsApp">
+    <a class="wa-neon" href="https://wa.me/5493496532749?text=Hola%20Digital%20Lab%2C%20me%20gustar%C3%ADa%20hablar%20sobre%20un%20proyecto." data-wa-link target="_blank" rel="noopener noreferrer" aria-label="Escribir a Digital Lab por WhatsApp">
       <!-- Trazo tenue fijo debajo y trazo de luz que se redibuja encima: el icono nunca se ve cortado -->
       <svg class="wa-neon__icon" viewBox="0 0 64 64" aria-hidden="true">
         <g class="wa-neon__track">
@@ -560,9 +578,9 @@
     </a>
   </div>
 
-  <script src="js/hero-animation.js?v=20261016"></script>
-  <script src="js/logo-animations.js?v=20261016"></script>
-  <script src="js/text-build.js?v=20261016"></script>
-  <script src="js/landing.js?v=20261016"></script>
+  <script src="js/hero-animation.js?v=20261016b"></script>
+  <script src="js/logo-animations.js?v=20261016b"></script>
+  <script src="js/text-build.js?v=20261016b"></script>
+  <script src="js/landing.js?v=20261016b"></script>
 </body>
 </html>
