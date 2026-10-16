@@ -12,7 +12,7 @@ js/hero-animation.js  Animación del hero: matriz de datos, hilos de luz y nodos
 js/logo-animations.js Ojo digital animado del logo («Hilo de luz»)
 js/text-build.js      Títulos que se construyen con cuadraditos («lluvia de datos»)
 js/landing.js         Hilos por toda la página, servicios, carrusel, panel de la visita, WhatsApp y formulario
-img/                  Ilustraciones del carrusel (set «A · Cinemático»)
+img/                  Imágenes del carrusel (WebP)
 ```
 
 ## Verla en local
@@ -28,7 +28,7 @@ y entra en http://localhost:8000.
 ## Para editar
 
 - **WhatsApp:** número y mensaje inicial en `js/landing.js` (`WHATSAPP_NUMBER` y `WHATSAPP_MESSAGE`).
-- **Imágenes del carrusel:** reemplaza los archivos de `img/` manteniendo los nombres (1600×900).
+- **Imágenes del carrusel:** reemplaza los archivos de `img/` manteniendo los nombres; se recortan al centro para llenar el recuadro (16:9 en escritorio, 4:5 en móvil).
 - **Formulario de contacto:** es una maqueta y todavía no envía mensajes; hay que conectarlo a un correo o CRM.
 - **Panel «Tu visita en datos»:** se calcula en el navegador del visitante y no envía datos a ningún sitio.
   La ubicación es aproximada (zona horaria e idioma); para ciudad exacta por IP hace falta un servicio externo.
