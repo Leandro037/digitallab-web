@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Auditoría web gratuita con IA | Digital Lab</title>
+  <meta name="description" content="Pega la URL de tu web y nuestro agente de IA revisa velocidad, SEO, accesibilidad y seguridad en menos de un minuto. Gratis y sin registrarte.">
+  <link rel="canonical" href="https://dl-dev.com/auditoria/">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#03070a">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="../favicon.ico" sizes="32x32">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Digital Lab">
+  <meta property="og:url" content="https://dl-dev.com/auditoria/">
+  <meta property="og:title" content="Auditoría web gratuita con IA | Digital Lab">
+  <meta property="og:description" content="Nuestro agente de IA revisa la velocidad, el SEO, la accesibilidad y la seguridad de tu web en menos de un minuto.">
+  <meta property="og:image" content="https://dl-dev.com/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css?v=20261016c">
+  <link rel="stylesheet" href="auditoria.css?v=20261016c">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Auditoría web gratuita con IA",
+    "url": "https://dl-dev.com/auditoria/",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "es",
+    "description": "Revisa la velocidad, el SEO, la accesibilidad y la seguridad de una web y genera un informe con inteligencia artificial.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "provider": { "@type": "Organization", "name": "Digital Lab", "url": "https://dl-dev.com/" }
+  }
+  </script>
+</head>
+<body class="au">
+  <header class="au-top">
+    <div class="wrap">
+      <a class="au-brand" href="../" aria-label="Digital Lab, inicio">
+        <img src="../favicon.svg" alt="" width="34" height="34">
+        <span>DIGITAL LAB</span>
+      </a>
+      <a class="btn btn--ghost btn--sm" href="../#contacto">Hablemos</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ Formulario ============ -->
+    <section class="au-hero wrap">
+      <p class="eyebrow"><i></i>Auditoría web gratuita</p>
+      <h1>Pega la URL de tu web y nuestro agente <span class="grad">la audita con IA</span></h1>
+      <p class="lead">Revisamos velocidad, SEO, accesibilidad y seguridad en menos de un minuto. Gratis y sin registrarte.</p>
+      <form class="au-form" data-audit-form novalidate>
+        <label class="au-sr" for="au-url">URL de tu web</label>
+        <input id="au-url" name="url" type="url" inputmode="url" placeholder="https://tuweb.com" autocomplete="url" maxlength="300" required>
+        <!-- Campo trampa contra robots: las personas no lo ven -->
+        <div class="form__trap" aria-hidden="true"><label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label></div>
+        <button class="btn btn--primary" type="submit" data-audit-btn>
+          <span data-btn-label>Analizar mi web</span>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+        </button>
+      </form>
+      <p class="au-note">Al analizar, la dirección de la web se envía a Google PageSpeed (desde tu navegador) y a nuestra IA para redactar el resumen. No guardamos nada tuyo. <a href="../privacidad.html#auditoria">Más información</a>.</p>
+      <p class="au-msg" data-msg role="status" hidden></p>
+    </section>
+
+    <!-- ============ El agente trabajando ============ -->
+    <section class="au-stage" aria-label="Progreso de la auditoría">
+      <div class="au-agent-wrap">
+        <svg class="au-agent" data-agent data-state="idle" viewBox="0 0 360 400" role="img" aria-label="Agente de auditoría de Digital Lab">
+          <defs>
+            <linearGradient id="ag-hood" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#17232c"/><stop offset=".6" stop-color="#0b1116"/><stop offset="1" stop-color="#05080b"/>
+            </linearGradient>
+            <linearGradient id="ag-rim" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#22d3ee" stop-opacity=".55"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="ag-visor" cx=".5" cy=".38" r=".7">
+              <stop offset="0" stop-color="#0f1c24"/><stop offset="1" stop-color="#020406"/>
+            </radialGradient>
+            <linearGradient id="ag-eye" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#5ad41c"/>
+            </linearGradient>
+            <linearGradient id="ag-lid" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#26313a"/><stop offset="1" stop-color="#11181e"/>
+            </linearGradient>
+            <radialGradient id="ag-desk" cx=".5" cy=".5" r=".5">
+              <stop offset="0" stop-color="#22d3ee" stop-opacity=".45"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+            </radialGradient>
+            <radialGradient id="ag-face-light" cx=".5" cy="1" r=".9">
+              <stop offset="0" stop-color="#5ad41c" stop-opacity=".35"/><stop offset="1" stop-color="#5ad41c" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="ag-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="ag-soft" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="7"/>
+            </filter>
+            <clipPath id="ag-visor-clip"><ellipse cx="180" cy="184" rx="60" ry="56"/></clipPath>
+          </defs>
+
+          <ellipse class="ag-desk" cx="180" cy="388" rx="160" ry="18" fill="url(#ag-desk)"/>
+
+          <g class="ag-body">
+            <path class="ag-rim-glow" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392" fill="none" stroke="#22d3ee" stroke-width="10" opacity=".25" filter="url(#ag-soft)"/>
+            <path class="ag-hood" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392Z" fill="url(#ag-hood)"/>
+            <path class="ag-rim" d="M40 392C44 318 70 268 98 244C92 152 122 70 180 56C238 70 268 152 262 244C290 268 316 318 320 392" fill="none" stroke="url(#ag-rim)" stroke-width="2.5" filter="url(#ag-glow)"/>
+            <path class="ag-opening" d="M180 98C226 98 254 136 254 180C254 228 224 258 180 258C136 258 106 228 106 180C106 136 134 98 180 98Z" fill="#030608" stroke="#22d3ee" stroke-opacity=".3" stroke-width="1.5"/>
+            <path class="ag-cord" d="M162 262L157 304M198 262L203 304" stroke="#22303a" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="157" cy="306" r="3.5" fill="#22d3ee" opacity=".7"/>
+            <circle cx="203" cy="306" r="3.5" fill="#22d3ee" opacity=".7"/>
+
+            <g class="ag-head">
+              <ellipse class="ag-visor" cx="180" cy="184" rx="60" ry="56" fill="url(#ag-visor)"/>
+              <ellipse class="ag-face-light" cx="180" cy="200" rx="58" ry="40" fill="url(#ag-face-light)"/>
+              <!-- reflejo de código en el visor mientras trabaja -->
+              <g clip-path="url(#ag-visor-clip)">
+                <g class="ag-code">
+                  <rect x="128" y="140" width="38" height="3" rx="1.5"/><rect x="172" y="140" width="22" height="3" rx="1.5"/>
+                  <rect x="136" y="152" width="58" height="3" rx="1.5"/><rect x="200" y="152" width="26" height="3" rx="1.5"/>
+                  <rect x="128" y="164" width="30" height="3" rx="1.5"/><rect x="164" y="164" width="46" height="3" rx="1.5"/>
+                  <rect x="140" y="212" width="50" height="3" rx="1.5"/><rect x="196" y="212" width="24" height="3" rx="1.5"/>
+                  <rect x="130" y="224" width="36" height="3" rx="1.5"/><rect x="172" y="224" width="40" height="3" rx="1.5"/>
+                  <rect x="128" y="236" width="58" height="3" rx="1.5"/><rect x="192" y="236" width="20" height="3" rx="1.5"/>
+                  <rect x="128" y="248" width="38" height="3" rx="1.5"/><rect x="172" y="248" width="22" height="3" rx="1.5"/>
+                  <rect x="136" y="260" width="58" height="3" rx="1.5"/><rect x="200" y="260" width="26" height="3" rx="1.5"/>
+                </g>
+              </g>
+              <g class="ag-eyes" filter="url(#ag-glow)">
+                <path class="ag-eye" d="M149 188Q160.5 172 172 188"/>
+                <path class="ag-eye" d="M188 188Q199.5 172 211 188"/>
+              </g>
+            </g>
+          </g>
+
+          <!-- manos que teclean detrás del portátil -->
+          <ellipse class="ag-hand ag-hand--l" cx="106" cy="334" rx="17" ry="11"/>
+          <ellipse class="ag-hand ag-hand--r" cx="254" cy="334" rx="17" ry="11"/>
+
+          <!-- datos que suben del portátil -->
+          <g class="ag-bits">
+            <rect x="124" y="270" width="6" height="6"/><rect x="146" y="270" width="5" height="5"/>
+            <rect x="168" y="270" width="6" height="6"/><rect x="190" y="270" width="5" height="5"/>
+            <rect x="212" y="270" width="6" height="6"/><rect x="232" y="270" width="5" height="5"/>
+            <rect x="136" y="270" width="4" height="4"/><rect x="222" y="270" width="4" height="4"/>
+          </g>
+
+          <!-- portátil con el ojo de Digital Lab -->
+          <rect class="ag-lid" x="102" y="276" width="156" height="98" rx="10" fill="url(#ag-lid)" stroke="#7fa8b4" stroke-opacity=".35"/>
+          <path class="ag-base" d="M86 374H274L288 388H72Z" fill="#2b363f"/>
+          <svg class="ag-logo" x="152" y="298" width="56" height="56" viewBox="56 72 394 396" overflow="visible">
+            <circle class="ag-logo-halo" cx="265" cy="280" r="190" fill="#5ad41c" opacity=".12" filter="url(#ag-soft)"/>
+            <g fill="none" stroke-width="22" stroke-linecap="round">
+              <path class="ag-logo-outer" d="M265 108A172 172 0 1 1 96 248" stroke="#5ad41c"/>
+              <path class="ag-logo-inner" d="M168 203A124 124 0 1 0 348 188" stroke="#22d3ee"/>
+            </g>
+            <g fill="#a6ff57"><circle cx="265" cy="108" r="28"/><circle cx="96" cy="248" r="28"/><circle cx="168" cy="203" r="28"/><circle cx="348" cy="188" r="28"/></g>
+            <circle class="ag-logo-iris" cx="269" cy="275" r="44" fill="#5ad41c"/>
+            <circle cx="286" cy="259" r="17" fill="#fff"/>
+          </svg>
+        </svg>
+      </div>
+
+      <!-- Los datos fluyen por los hilos mientras el agente trabaja -->
+      <div class="au-flow" data-flow>
+        <canvas class="au-canvas" aria-hidden="true"></canvas>
+      </div>
+
+      <ol class="au-steps" data-steps hidden>
+        <li data-step="conexion">Conectando con la web</li>
+        <li data-step="seguridad">Revisando HTTPS y seguridad</li>
+        <li data-step="velocidad">Midiendo velocidad con Google</li>
+        <li data-step="seo">Analizando SEO y accesibilidad</li>
+        <li data-step="informe">Redactando el resumen con IA</li>
+      </ol>
+      <p class="au-timer" data-timer hidden></p>
+    </section>
+
+    <!-- ============ Resultado ============ -->
+    <section class="au-result wrap" data-result hidden aria-live="polite">
+      <header class="au-result__head">
+        <p class="eyebrow"><i></i>Resultado</p>
+        <h2>Auditoría de <span class="grad" data-site></span></h2>
+      </header>
+
+      <div class="au-scores" data-scores></div>
+
+      <article class="au-summary">
+        <h3>Resumen del agente</h3>
+        <div class="au-summary__text" data-summary></div>
+      </article>
+
+      <div class="au-checks" data-checks></div>
+
+      <!-- Informe detallado por email -->
+      <form class="au-mail" data-mail-form novalidate>
+        <h3>¿Quieres el informe detallado?</h3>
+        <p>Te enviamos por email el análisis completo, con cada problema explicado y los pasos para solucionarlo.</p>
+        <div class="au-mail__row">
+          <label class="au-sr" for="au-email">Tu email</label>
+          <input id="au-email" name="email" type="email" placeholder="tu@empresa.com" autocomplete="email" maxlength="254" required>
+          <button class="btn btn--primary" type="submit" data-mail-btn>Enviarme el informe</button>
+        </div>
+        <div class="form__trap" aria-hidden="true"><label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label></div>
+        <label class="field field--check">
+          <input id="au-consent" name="consent" type="checkbox" required>
+          <span>He leído la <a href="../privacidad.html">política de privacidad</a> y acepto que Digital Lab use mi email para enviarme este informe y contactarme sobre él.</span>
+        </label>
+        <p class="au-msg" data-mail-msg role="status" hidden></p>
+      </form>
+    </section>
+
+    <!-- ============ Llamada a la acción ============ -->
+    <section class="au-cta wrap">
+      <h2>¿Quieres que te ayudemos a <span class="grad">optimizar tu web</span>?</h2>
+      <p class="lead">Habla con nosotros y te proponemos los primeros pasos, sin compromiso.</p>
+      <a class="btn btn--primary" href="../#contacto">
+        Enviar mensaje
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </a>
+    </section>
+  </main>
+
+  <footer class="legal-foot">
+    <div class="wrap">
+      <span>© 2026 Digital Lab</span>
+      <nav aria-label="Información legal">
+        <a href="../aviso-legal.html">Aviso legal</a>
+        <a href="../privacidad.html">Privacidad</a>
+        <a href="../cookies.html">Cookies</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="../js/hero-animation.js?v=20261016c"></script>
+  <script src="auditoria.js?v=20261016c"></script>
+</body>
+</html>

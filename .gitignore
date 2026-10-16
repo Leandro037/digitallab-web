@@ -1,0 +1,4 @@
+# Claves y datos de la auditoría: nunca al repositorio
+auditoria/api/config.php
+auditoria/api/data/*
+!auditoria/api/data/.htaccess

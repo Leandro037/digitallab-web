@@ -18,6 +18,7 @@ js/logo-animations.js Ojo digital animado del logo («Hilo de luz»)
 js/text-build.js      Títulos que se construyen con cuadraditos («lluvia de datos»)
 js/landing.js         Hilos por toda la página, servicios, carrusel, panel de la visita, WhatsApp y formulario
 img/                  Imágenes del carrusel (WebP)
+auditoria/            Auditoría web gratuita con IA (página + servidor PHP en auditoria/api/)
 ```
 
 ## Verla en local
@@ -53,14 +54,33 @@ apple-touch-icon.png icon-192.png      icon-512.png       og-image.jpg
 fonts/   (2 .woff2 + OFL.txt)
 img/     (6 .webp)
 js/      (4 .js)
+auditoria/  (completa, con sus 3 archivos .htaccess; ver «Auditoría web»)
 ```
 
-No hace falta subir `README.md`, `.nojekyll` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
+No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
 
 1. `.htaccess` es un archivo oculto: activa «mostrar archivos ocultos» en el administrador de archivos o en el cliente FTP para comprobar que se subió.
 2. Cada vez que cambies `styles.css` o algo de `js/`, cambia el sufijo `?v=…` en `index.html` (y en las páginas legales, para `styles.css`) para que los visitantes reciban la versión nueva.
 3. Si cambias el contenido, actualiza `<lastmod>` en `sitemap.xml`.
 4. Tras subir, comprueba que `https://www.dl-dev.com` redirige a `https://dl-dev.com` y que la web carga sin errores en la consola del navegador.
+
+## Auditoría web (`/auditoria/`)
+
+El visitante pega una URL y el agente la revisa: nuestro servidor comprueba seguridad y SEO (`api/revisar.php`), el navegador mide la velocidad con Google PageSpeed Insights, y Claude redacta un resumen (`api/informe.php`). Si deja su email, recibe un informe detallado (`api/enviar.php`). Con `?demo` al final de la dirección se ve una simulación sin gastar nada.
+
+**Requisitos:** PHP 8.1 o superior con `curl`, `mbstring` y `dom` (en Hostinger vienen activadas), y la función `mail()`.
+
+**Configuración** (una sola vez):
+
+1. Copia `auditoria/api/config.example.php` como `dl-auditoria-config.php` en la carpeta que está **por encima** de `public_html`, y complétalo. Si no se puede, cópialo como `auditoria/api/config.php` (lo protege `.htaccess` y git lo ignora). **Nunca subas las claves a GitHub.**
+2. `anthropic_api_key`: en console.anthropic.com → API Keys. Pon un límite de gasto mensual en la consola.
+3. `google_psi_key`: en console.cloud.google.com, activa «PageSpeed Insights API», crea una clave y restríngela a sitios web `https://dl-dev.com/*` (el navegador la usa directamente, por eso debe estar restringida).
+4. Crea en Hostinger el buzón `auditoria@dl-dev.com` (remitente de los informes) y pon en `email_avisos` dónde quieres recibir cada solicitud.
+5. Cambia `sal` por un texto largo y aleatorio.
+
+**Protecciones:** solo audita webs públicas (rechaza IP privadas, `localhost`, puertos que no sean 80/443 y redirecciones hacia la red interna); límites de 6 auditorías por hora y 3 emails por día por visitante, y 300 llamadas a la IA por día en total (ajustables en la configuración); campo trampa contra bots; solo acepta peticiones desde dl-dev.com. Los datos de cada auditoría se guardan en `auditoria/api/data/` (bloqueada desde internet) y se borran a las 24 h o al enviar el informe.
+
+**Coste aproximado:** cada resumen es una llamada corta a Claude Sonnet 5.5 y cada informe por email, una algo más larga; con el límite diario por defecto el gasto máximo queda acotado. PageSpeed Insights es gratuito.
 
 ## SEO
 
@@ -78,6 +98,6 @@ No hace falta subir `README.md`, `.nojekyll` ni la carpeta `.git` (el servidor b
 
 ## Protección de datos
 
-- Sin cookies, sin analítica y sin conexiones a terceros (tipografías propias).
+- Sin cookies, sin analítica y sin conexiones a terceros (tipografías propias), salvo en la auditoría web: Google PageSpeed (velocidad) y Anthropic (redacción con IA), documentados en `privacidad.html#auditoria`. La IP del visitante no se guarda: solo un resumen cifrado con sal durante 24 h para los límites de uso.
 - El panel «Tu visita en datos» se calcula en el navegador; solo guarda el contador de visitas en el almacenamiento local (`dl-visitas`, `dl-sesion`), documentado en `cookies.html`.
 - Textos legales para la Ley 25.326 (incluida la leyenda obligatoria de la AAIP) y el RGPD para clientes de la UE.

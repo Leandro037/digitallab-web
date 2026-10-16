@@ -1,0 +1,8 @@
+# Solo se pueden llamar los tres puntos de entrada; el resto de archivos PHP no son accesibles
+Options -Indexes
+<FilesMatch "\.php$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^(revisar|informe|enviar)\.php$">
+  Require all granted
+</FilesMatch>

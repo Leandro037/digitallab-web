@@ -60,7 +60,8 @@
     band: null,        // elemento cuya altura ocupa la matriz (p. ej. el logo con el nombre)
     lineStart: null,   // elemento desde cuyo borde izquierdo se alarga la fila de emisores
     ragged: 0.62,      // irregularidad del borde superior de la matriz (0 = recto)
-    onLineEnd: null    // se llama cuando un pulso de luz llega al final de la fila alargada
+    onLineEnd: null,   // se llama cuando un pulso de luz llega al final de la fila alargada
+    activity: 1        // ritmo de los datos (1 normal; más alto = más gotas y pulsos, p. ej. mientras se trabaja)
   };
 
   const WHITE = [255, 255, 255];
@@ -132,7 +133,7 @@
     let bandR = null, lineX = null, ext = [], linePulses = [], lineAcc = 0;
 
     let T = 0, last = 0, raf = 0, rzRaf = 0, running = false, inView = true;
-    let pulseAcc = 0, par = 0;
+    let pulseAcc = 0, par = 0, act = o.activity;
     const mouse = { x: -1e4, y: -1e4, on: false, moved: false, lastInject: 0 };
     const perf = { sum: 0, n: 0 };
 
@@ -369,6 +370,7 @@
 
     function update(dt) {
       T += dt;
+      act += (o.activity - act) * (1 - Math.exp(-dt * 1.5));   // el ritmo cambia de forma suave
       const target = mouse.on ? clamp(mouse.x / W - 0.5, -0.5, 0.5) : 0;
       par += (target - par) * (1 - Math.exp(-dt * 2.5));
       const shift = ext.length ? 0 : -par * 12;
@@ -393,7 +395,7 @@
 
       for (let k = drops.length - 1; k >= 0; k--) {
         const dr = drops[k];
-        dr.y += dr.v * dt;
+        dr.y += dr.v * dt * Math.sqrt(act);
         if (!dr.fired && dr.y >= nRows) {
           dr.fired = true;
           emitters[dr.c].flash = 1;
@@ -406,7 +408,7 @@
       }
 
       if (live) {
-        pulseAcc += dt * 2.5 * o.density;
+        pulseAcc += dt * 2.5 * o.density * act;
         while (pulseAcc > 1) { pulseAcc -= 1; firePulse(Math.floor(Math.random() * nCols)); }
       }
 
@@ -778,6 +780,8 @@
     sync();
 
     return {
+      // Cambia el ritmo de los datos sin recomponer la escena
+      setActivity(a) { o.activity = Math.max(0.1, a); },
       // Cambia opciones en caliente (p. ej. activar el modo integrado) y recompone la escena
       setOptions(next) {
         Object.assign(o, next);

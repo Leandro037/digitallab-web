@@ -12,4 +12,8 @@
     <image:image><image:loc>https://dl-dev.com/img/consultoria.webp</image:loc></image:image>
     <image:image><image:loc>https://dl-dev.com/img/software.webp</image:loc></image:image>
   </url>
+  <url>
+    <loc>https://dl-dev.com/auditoria/</loc>
+    <lastmod>2026-10-16</lastmod>
+  </url>
 </urlset>
