@@ -1,0 +1,44 @@
+# Digital Lab · reglas del servidor para Hostinger (dl-dev.com)
+# Hostinger ya redirige http → https; aquí solo se unifica el dominio y se mejora la caché.
+
+Options -Indexes
+ErrorDocument 404 /404.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # www.dl-dev.com → dl-dev.com (una sola dirección para Google)
+  RewriteCond %{HTTP_HOST} ^www\.dl-dev\.com$ [NC]
+  RewriteRule ^(.*)$ https://dl-dev.com/$1 [L,R=301]
+
+  # /index.html → / (evita contenido duplicado)
+  RewriteCond %{THE_REQUEST} \s/+index\.html[\s?] [NC]
+  RewriteRule ^index\.html$ https://dl-dev.com/ [L,R=301]
+</IfModule>
+
+# Tipos de archivo
+<IfModule mod_mime.c>
+  AddType image/webp .webp
+  AddType image/svg+xml .svg
+  AddType application/manifest+json .webmanifest
+</IfModule>
+
+# Caché: el HTML siempre se revalida; CSS y JS llevan ?v= en la página, así que pueden guardarse mucho tiempo
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/html "access plus 0 seconds"
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 month"
+  ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType image/png "access plus 1 month"
+  ExpiresByType image/svg+xml "access plus 1 month"
+  ExpiresByType image/x-icon "access plus 1 month"
+  ExpiresByType application/manifest+json "access plus 1 week"
+</IfModule>
+
+# Compresión
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript image/svg+xml application/manifest+json application/xml text/xml
+</IfModule>

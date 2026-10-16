@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="56 72 394 396">
+  <defs>
+    <linearGradient id="g" x1="80" y1="90" x2="440" y2="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3f700c"/><stop offset="1" stop-color="#5ad41c"/>
+    </linearGradient>
+    <mask id="m">
+      <rect x="0" y="0" width="512" height="512" fill="#fff"/>
+      <circle cx="168" cy="203" r="36" fill="#000"/><circle cx="348" cy="188" r="36" fill="#000"/>
+    </mask>
+  </defs>
+  <circle cx="265" cy="278" r="108" fill="#2a2d30" mask="url(#m)"/>
+  <g fill="none" stroke="url(#g)" stroke-width="22">
+    <path d="M265 108A172 172 0 1 1 96 248"/><path d="M168 203A124 124 0 1 0 348 188"/>
+  </g>
+  <g fill="url(#g)">
+    <circle cx="265" cy="108" r="30"/><circle cx="96" cy="248" r="30"/><circle cx="168" cy="203" r="30"/><circle cx="348" cy="188" r="30"/><circle cx="269" cy="275" r="46"/>
+  </g>
+  <g fill="#fff">
+    <circle cx="265" cy="108" r="11"/><circle cx="96" cy="248" r="11"/><circle cx="168" cy="203" r="11"/><circle cx="348" cy="188" r="11"/><circle cx="286" cy="259" r="19"/>
+  </g>
+</svg>

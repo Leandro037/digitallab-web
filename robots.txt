@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dl-dev.com/sitemap.xml
