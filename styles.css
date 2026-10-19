@@ -224,6 +224,9 @@ h2 {
   transition: color .2s;
 }
 .nav__menu a:not(.btn):hover { color: var(--text); }
+.nav__menu a.nav__login { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 14px; }
+.nav__menu a.nav__login:hover { border-color: var(--green); }
+.nav__login svg { width: 15px; height: 15px; flex: none; }
 .nav__menu-cta, .nav__toggle { display: none; }
 
 /* ---------- Hero ---------- */

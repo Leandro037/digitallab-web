@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Auditoría web gratuita con IA | Digital Lab</title>
-  <meta name="description" content="Pega la URL de tu web y nuestro agente de IA revisa velocidad, SEO, accesibilidad y seguridad en menos de un minuto. Gratis y sin registrarte.">
+  <meta name="description" content="Pega la URL de tu web y nuestro equipo de agentes de IA revisa velocidad, SEO, accesibilidad, seguridad y conversión. Te llevas un informe en PDF con un plan de acción. Gratis y sin registrarte.">
   <link rel="canonical" href="https://dl-dev.com/auditoria/">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#03070a">
@@ -17,15 +17,15 @@
   <meta property="og:site_name" content="Digital Lab">
   <meta property="og:url" content="https://dl-dev.com/auditoria/">
   <meta property="og:title" content="Auditoría web gratuita con IA | Digital Lab">
-  <meta property="og:description" content="Nuestro agente de IA revisa la velocidad, el SEO, la accesibilidad y la seguridad de tu web en menos de un minuto.">
+  <meta property="og:description" content="Un equipo de agentes de IA revisa la velocidad, el SEO, la accesibilidad y la seguridad de tu web y te entrega un informe en PDF.">
   <meta property="og:image" content="https://dl-dev.com/og-image.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="../styles.css?v=20261016c">
-  <link rel="stylesheet" href="auditoria.css?v=20261016e">
+  <link rel="stylesheet" href="../styles.css?v=20261019a">
+  <link rel="stylesheet" href="auditoria.css?v=20261019b">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -35,7 +35,7 @@
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "inLanguage": "es",
-    "description": "Revisa la velocidad, el SEO, la accesibilidad y la seguridad de una web y genera un informe con inteligencia artificial.",
+    "description": "Un equipo de agentes de inteligencia artificial revisa la velocidad, el SEO, la accesibilidad, la seguridad y la conversión de una web y genera un informe en PDF con un plan de acción.",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "provider": { "@type": "Organization", "name": "Digital Lab", "url": "https://dl-dev.com/" }
   }
@@ -56,8 +56,8 @@
     <!-- ============ Formulario ============ -->
     <section class="au-hero wrap">
       <p class="eyebrow"><i></i>Auditoría web gratuita</p>
-      <h1>Pega la URL de tu web y nuestro agente <span class="grad">la audita con IA</span></h1>
-      <p class="lead">Revisamos velocidad, SEO, accesibilidad y seguridad en menos de un minuto. Gratis y sin registrarte.</p>
+      <h1>Pega la URL de tu web y nuestros agentes <span class="grad">la auditan con IA</span></h1>
+      <p class="lead">Un equipo de agentes revisa velocidad, SEO, accesibilidad, seguridad y conversión, y te entrega un informe en PDF con un plan de acción. Gratis y sin registrarte.</p>
       <form class="au-form" data-audit-form novalidate>
         <label class="au-sr" for="au-url">URL de tu web</label>
         <input id="au-url" name="url" type="url" inputmode="url" placeholder="https://tuweb.com" autocomplete="url" maxlength="300" required>
@@ -68,73 +68,82 @@
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
         </button>
       </form>
-      <p class="au-note">Al analizar, la dirección de la web se envía a Google PageSpeed (desde tu navegador) y a nuestra IA para redactar el resumen. No guardamos nada tuyo. <a href="../privacidad.html#auditoria">Más información</a>.</p>
+      <p class="au-note">Al analizar, la dirección de la web se envía a Google PageSpeed (desde tu navegador) y a nuestros agentes de IA, que redactan el informe. No guardamos nada tuyo. <a href="../privacidad.html#auditoria">Más información</a>.</p>
       <p class="au-msg" data-msg role="status" hidden></p>
     </section>
 
-    <!-- ============ El agente trabajando ============ -->
+    <!-- ============ El equipo de agentes trabajando ============ -->
     <section class="au-stage" aria-label="Progreso de la auditoría">
-      <div class="au-agent-wrap">
-        <div class="au-agent" data-agent data-state="idle" role="img" aria-label="Agente de auditoría de Digital Lab: un robot encapuchado que trabaja con su portátil">
-          <span class="ag-aura" aria-hidden="true"></span>
-          <div class="ag-body">
-            <img class="ag-img" src="agente.webp?v=20261016d" width="640" height="640" alt="" decoding="async" fetchpriority="high">
-            <!-- Capa animada sobre la imagen (mismas coordenadas que el original de 1254 px) -->
-            <svg class="ag-fx" viewBox="0 0 1254 1254" aria-hidden="true" focusable="false">
-              <defs>
-                <filter id="ag-glow" x="-60%" y="-120%" width="220%" height="340%">
-                  <feGaussianBlur in="SourceAlpha" stdDeviation="16" result="wide"/>
-                  <feFlood flood-color="#9b2cff"/><feComposite in2="wide" operator="in" result="g1"/>
-                  <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="near"/>
-                  <feFlood flood-color="#e27cff"/><feComposite in2="near" operator="in" result="g2"/>
-                  <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="g2"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-                <filter id="ag-glow-err" x="-60%" y="-120%" width="220%" height="340%">
-                  <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="wide"/>
-                  <feFlood flood-color="#ff6a3d"/><feComposite in2="wide" operator="in" result="g1"/>
-                  <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-                <clipPath id="ag-visor"><ellipse cx="640" cy="570" rx="246" ry="148"/></clipPath>
-                <linearGradient id="ag-scan-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#c86bff" stop-opacity="0"/>
-                  <stop offset=".5" stop-color="#efc2ff" stop-opacity=".5"/>
-                  <stop offset="1" stop-color="#c86bff" stop-opacity="0"/>
-                </linearGradient>
-                <radialGradient id="ag-halo-grad">
-                  <stop offset="0" stop-color="#f6b8ff" stop-opacity=".95"/>
-                  <stop offset=".4" stop-color="#bb4dff" stop-opacity=".4"/>
-                  <stop offset="1" stop-color="#7a2bff" stop-opacity="0"/>
-                </radialGradient>
-              </defs>
-              <g clip-path="url(#ag-visor)">
-                <g class="ag-code"><rect x="433" y="420" width="50" height="9" rx="4.5"/><rect x="513" y="420" width="103" height="9" rx="4.5"/><rect x="449" y="450" width="43" height="9" rx="4.5"/><rect x="513" y="450" width="51" height="9" rx="4.5"/><rect x="596" y="450" width="96" height="9" rx="4.5"/><rect x="724" y="450" width="25" height="9" rx="4.5"/><rect x="427" y="480" width="70" height="9" rx="4.5"/><rect x="516" y="480" width="24" height="9" rx="4.5"/><rect x="567" y="480" width="36" height="9" rx="4.5"/><rect x="638" y="480" width="68" height="9" rx="4.5"/><rect x="448" y="510" width="88" height="9" rx="4.5"/><rect x="561" y="510" width="58" height="9" rx="4.5"/><rect x="642" y="510" width="89" height="9" rx="4.5"/><rect x="443" y="540" width="74" height="9" rx="4.5"/><rect x="533" y="540" width="48" height="9" rx="4.5"/><rect x="616" y="540" width="72" height="9" rx="4.5"/><rect x="711" y="540" width="26" height="9" rx="4.5"/><rect x="415" y="570" width="56" height="9" rx="4.5"/><rect x="490" y="570" width="37" height="9" rx="4.5"/><rect x="543" y="570" width="45" height="9" rx="4.5"/><rect x="419" y="600" width="72" height="9" rx="4.5"/><rect x="526" y="600" width="75" height="9" rx="4.5"/><rect x="622" y="600" width="25" height="9" rx="4.5"/><rect x="420" y="630" width="63" height="9" rx="4.5"/><rect x="512" y="630" width="71" height="9" rx="4.5"/><rect x="608" y="630" width="67" height="9" rx="4.5"/><rect x="698" y="630" width="83" height="9" rx="4.5"/><rect x="420" y="660" width="85" height="9" rx="4.5"/><rect x="519" y="660" width="68" height="9" rx="4.5"/><rect x="613" y="660" width="45" height="9" rx="4.5"/><rect x="689" y="660" width="97" height="9" rx="4.5"/><rect x="422" y="690" width="30" height="9" rx="4.5"/><rect x="480" y="690" width="102" height="9" rx="4.5"/><rect x="445" y="720" width="54" height="9" rx="4.5"/><rect x="532" y="720" width="85" height="9" rx="4.5"/><rect x="423" y="750" width="26" height="9" rx="4.5"/><rect x="482" y="750" width="103" height="9" rx="4.5"/><rect x="431" y="780" width="34" height="9" rx="4.5"/><rect x="485" y="780" width="98" height="9" rx="4.5"/><rect x="603" y="780" width="63" height="9" rx="4.5"/><rect x="696" y="780" width="77" height="9" rx="4.5"/></g>
-                <rect class="ag-scan" x="380" y="330" width="520" height="110" fill="url(#ag-scan-grad)"/>
-              </g>
-              <g class="ag-eyes" filter="url(#ag-glow)">
-                <path class="ag-eye" d="M442 607Q499 535 556 607"/>
-                <path class="ag-eye" d="M701 607Q757.5 535 814 607"/>
-              </g>
-              <rect class="ag-screen" x="240" y="790" width="770" height="372" rx="22"/>
-              <circle class="ag-halo" cx="628" cy="982" r="155" fill="url(#ag-halo-grad)"/>
-              <circle class="ag-orbit" cx="628" cy="982" r="132"/>
-              <circle class="ag-orbit ag-orbit--in" cx="628" cy="982" r="74"/>
-              <g class="ag-bits"><rect x="330" y="800" width="14" height="14" rx="3"/><rect x="420" y="790" width="10" height="10" rx="3"/><rect x="505" y="805" width="16" height="16" rx="3"/><rect x="600" y="788" width="12" height="12" rx="3"/><rect x="690" y="800" width="14" height="14" rx="3"/><rect x="775" y="792" width="10" height="10" rx="3"/><rect x="850" y="806" width="16" height="16" rx="3"/><rect x="930" y="796" width="12" height="12" rx="3"/></g>
-            </svg>
+      <div class="au-team" data-team data-state="idle">
+        <div class="au-side au-side--l" data-side="l"></div>
+        <div class="au-lead">
+          <p class="au-tag" style="--c:#8b5cff"><b>15</b> AI Auditor</p>
+          <div class="au-agent-wrap">
+            <div class="au-agent" data-agent data-state="idle" role="img" aria-label="El agente 15 AI Auditor de Digital Lab: un robot encapuchado que trabaja con su portátil">
+              <span class="ag-aura" aria-hidden="true"></span>
+              <div class="ag-body">
+                <img class="ag-img" src="agente.webp?v=20261016d" width="640" height="640" alt="" decoding="async" fetchpriority="high">
+                <!-- Capa animada sobre la imagen (mismas coordenadas que el original de 1254 px) -->
+                <svg class="ag-fx" viewBox="0 0 1254 1254" aria-hidden="true" focusable="false">
+                  <defs>
+                    <filter id="ag-glow" x="-60%" y="-120%" width="220%" height="340%">
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="16" result="wide"/>
+                      <feFlood flood-color="#9b2cff"/><feComposite in2="wide" operator="in" result="g1"/>
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="near"/>
+                      <feFlood flood-color="#e27cff"/><feComposite in2="near" operator="in" result="g2"/>
+                      <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="g2"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <filter id="ag-glow-err" x="-60%" y="-120%" width="220%" height="340%">
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="14" result="wide"/>
+                      <feFlood flood-color="#ff6a3d"/><feComposite in2="wide" operator="in" result="g1"/>
+                      <feMerge><feMergeNode in="g1"/><feMergeNode in="g1"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                    <clipPath id="ag-visor"><ellipse cx="640" cy="570" rx="246" ry="148"/></clipPath>
+                    <linearGradient id="ag-scan-grad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#c86bff" stop-opacity="0"/>
+                      <stop offset=".5" stop-color="#efc2ff" stop-opacity=".5"/>
+                      <stop offset="1" stop-color="#c86bff" stop-opacity="0"/>
+                    </linearGradient>
+                    <radialGradient id="ag-halo-grad">
+                      <stop offset="0" stop-color="#f6b8ff" stop-opacity=".95"/>
+                      <stop offset=".4" stop-color="#bb4dff" stop-opacity=".4"/>
+                      <stop offset="1" stop-color="#7a2bff" stop-opacity="0"/>
+                    </radialGradient>
+                  </defs>
+                  <g clip-path="url(#ag-visor)">
+                    <g class="ag-code"><rect x="433" y="420" width="50" height="9" rx="4.5"/><rect x="513" y="420" width="103" height="9" rx="4.5"/><rect x="449" y="450" width="43" height="9" rx="4.5"/><rect x="513" y="450" width="51" height="9" rx="4.5"/><rect x="596" y="450" width="96" height="9" rx="4.5"/><rect x="724" y="450" width="25" height="9" rx="4.5"/><rect x="427" y="480" width="70" height="9" rx="4.5"/><rect x="516" y="480" width="24" height="9" rx="4.5"/><rect x="567" y="480" width="36" height="9" rx="4.5"/><rect x="638" y="480" width="68" height="9" rx="4.5"/><rect x="448" y="510" width="88" height="9" rx="4.5"/><rect x="561" y="510" width="58" height="9" rx="4.5"/><rect x="642" y="510" width="89" height="9" rx="4.5"/><rect x="443" y="540" width="74" height="9" rx="4.5"/><rect x="533" y="540" width="48" height="9" rx="4.5"/><rect x="616" y="540" width="72" height="9" rx="4.5"/><rect x="711" y="540" width="26" height="9" rx="4.5"/><rect x="415" y="570" width="56" height="9" rx="4.5"/><rect x="490" y="570" width="37" height="9" rx="4.5"/><rect x="543" y="570" width="45" height="9" rx="4.5"/><rect x="419" y="600" width="72" height="9" rx="4.5"/><rect x="526" y="600" width="75" height="9" rx="4.5"/><rect x="622" y="600" width="25" height="9" rx="4.5"/><rect x="420" y="630" width="63" height="9" rx="4.5"/><rect x="512" y="630" width="71" height="9" rx="4.5"/><rect x="608" y="630" width="67" height="9" rx="4.5"/><rect x="698" y="630" width="83" height="9" rx="4.5"/><rect x="420" y="660" width="85" height="9" rx="4.5"/><rect x="519" y="660" width="68" height="9" rx="4.5"/><rect x="613" y="660" width="45" height="9" rx="4.5"/><rect x="689" y="660" width="97" height="9" rx="4.5"/><rect x="422" y="690" width="30" height="9" rx="4.5"/><rect x="480" y="690" width="102" height="9" rx="4.5"/><rect x="445" y="720" width="54" height="9" rx="4.5"/><rect x="532" y="720" width="85" height="9" rx="4.5"/><rect x="423" y="750" width="26" height="9" rx="4.5"/><rect x="482" y="750" width="103" height="9" rx="4.5"/><rect x="431" y="780" width="34" height="9" rx="4.5"/><rect x="485" y="780" width="98" height="9" rx="4.5"/><rect x="603" y="780" width="63" height="9" rx="4.5"/><rect x="696" y="780" width="77" height="9" rx="4.5"/></g>
+                    <rect class="ag-scan" x="380" y="330" width="520" height="110" fill="url(#ag-scan-grad)"/>
+                  </g>
+                  <g class="ag-eyes" filter="url(#ag-glow)">
+                    <path class="ag-eye" d="M442 607Q499 535 556 607"/>
+                    <path class="ag-eye" d="M701 607Q757.5 535 814 607"/>
+                  </g>
+                  <rect class="ag-screen" x="240" y="790" width="770" height="372" rx="22"/>
+                  <circle class="ag-halo" cx="628" cy="982" r="155" fill="url(#ag-halo-grad)"/>
+                  <circle class="ag-orbit" cx="628" cy="982" r="132"/>
+                  <circle class="ag-orbit ag-orbit--in" cx="628" cy="982" r="74"/>
+                  <g class="ag-bits"><rect x="330" y="800" width="14" height="14" rx="3"/><rect x="420" y="790" width="10" height="10" rx="3"/><rect x="505" y="805" width="16" height="16" rx="3"/><rect x="600" y="788" width="12" height="12" rx="3"/><rect x="690" y="800" width="14" height="14" rx="3"/><rect x="775" y="792" width="10" height="10" rx="3"/><rect x="850" y="806" width="16" height="16" rx="3"/><rect x="930" y="796" width="12" height="12" rx="3"/></g>
+                </svg>
+              </div>
+            </div>
           </div>
+          <p class="au-pill" data-lead-pill hidden></p>
         </div>
+        <div class="au-side au-side--r" data-side="r"></div>
       </div>
+      <p class="au-caption" data-caption aria-live="polite" hidden></p>
 
-      <!-- Los datos fluyen por los hilos solo mientras el agente trabaja -->
+      <!-- Los datos fluyen por los hilos solo mientras los agentes trabajan -->
       <div class="au-flow" data-flow>
         <canvas class="au-canvas" aria-hidden="true"></canvas>
       </div>
 
       <ol class="au-steps" data-steps hidden>
-        <li data-step="conexion">Conectando con la web</li>
-        <li data-step="seguridad">Revisando HTTPS y seguridad</li>
-        <li data-step="velocidad">Midiendo velocidad con Google</li>
-        <li data-step="seo">Analizando SEO y accesibilidad</li>
-        <li data-step="informe">Redactando el resumen con IA</li>
+        <li data-step="conexion">Revisión automática de la web</li>
+        <li data-step="velocidad">Velocidad medida por Google</li>
+        <li data-step="equipo">Análisis de los especialistas</li>
+        <li data-step="informe">Diagnóstico y plan de acción</li>
+        <li data-step="calidad">Revisión de calidad</li>
       </ol>
       <p class="au-timer" data-timer hidden></p>
     </section>
@@ -144,33 +153,38 @@
       <header class="au-result__head">
         <p class="eyebrow"><i></i>Resultado</p>
         <h2>Auditoría de <span class="grad" data-site></span></h2>
+        <p class="au-demo-tag" data-demo-tag hidden>Informe de demostración · datos de ejemplo</p>
       </header>
 
       <div class="au-scores" data-scores></div>
 
-      <article class="au-summary">
-        <h3>Resumen del agente</h3>
+      <article class="au-summary" data-diagnosis>
+        <h3>Diagnóstico del AI Auditor</h3>
         <div class="au-summary__text" data-summary></div>
       </article>
 
-      <div class="au-checks" data-checks></div>
-
-      <!-- Informe detallado por email -->
-      <form class="au-mail" data-mail-form novalidate>
-        <h3>¿Quieres el informe detallado?</h3>
-        <p>Te enviamos por email el análisis completo, con cada problema explicado y los pasos para solucionarlo.</p>
-        <div class="au-mail__row">
-          <label class="au-sr" for="au-email">Tu email</label>
-          <input id="au-email" name="email" type="email" placeholder="tu@empresa.com" autocomplete="email" maxlength="254" required>
-          <button class="btn btn--primary" type="submit" data-mail-btn>Enviarme el informe</button>
+      <!-- Informe en PDF: se entrega cuando el 16 QA aprueba el informe -->
+      <div class="au-download" data-download>
+        <div class="au-download__txt">
+          <h3>Tu informe completo en PDF</h3>
+          <p>Diagnóstico, cada hallazgo explicado con su solución, el plan de acción priorizado y los siguientes pasos. Revisado por nuestro agente de calidad.</p>
         </div>
-        <div class="form__trap" aria-hidden="true"><label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label></div>
-        <label class="field field--check">
-          <input id="au-consent" name="consent" type="checkbox" required>
-          <span>He leído la <a href="../privacidad.html">política de privacidad</a> y acepto que Digital Lab use mi email para enviarme este informe y contactarme sobre él.</span>
-        </label>
-        <p class="au-msg" data-mail-msg role="status" hidden></p>
-      </form>
+        <button class="btn btn--primary" type="button" data-pdf-btn>
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>
+          <span data-pdf-label>Descargar informe PDF</span>
+        </button>
+        <p class="au-download__note" data-pdf-note role="status"></p>
+      </div>
+
+      <!-- Si el 16 QA no lo aprueba ni después de la corrección, el informe redactado no se entrega -->
+      <div class="au-held" data-held hidden>
+        <h3>Tu informe necesita una revisión más</h3>
+        <p>Nuestro agente de calidad no dio por bueno el informe redactado, así que preferimos no entregártelo todavía. Abajo tienes las comprobaciones automáticas, que sí son fiables. Escríbenos y te enviamos el informe revisado por una persona del equipo.</p>
+        <a class="btn btn--primary" href="https://wa.me/5493496532749" data-held-wa rel="noopener" target="_blank">Pedir el informe por WhatsApp</a>
+      </div>
+
+      <div class="au-areas" data-areas></div>
+      <div class="au-checks" data-checks hidden></div>
     </section>
 
     <!-- ============ Llamada a la acción ============ -->
@@ -196,6 +210,6 @@
   </footer>
 
   <script src="../js/hero-animation.js?v=20261016d"></script>
-  <script src="auditoria.js?v=20261016f"></script>
+  <script src="auditoria.js?v=20261019a"></script>
 </body>
 </html>

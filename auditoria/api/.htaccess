@@ -1,8 +1,12 @@
-# Solo se pueden llamar los tres puntos de entrada; el resto de archivos PHP no son accesibles
+# Solo se pueden llamar los dos puntos de entrada; el resto de archivos PHP no son accesibles
 Options -Indexes
 <FilesMatch "\.php$">
   Require all denied
 </FilesMatch>
-<FilesMatch "^(revisar|informe|enviar)\.php$">
+<FilesMatch "^(revisar|agente)\.php$">
   Require all granted
+</FilesMatch>
+# Configuración de los agentes, si no se puede guardar fuera de public_html
+<FilesMatch "\.json$">
+  Require all denied
 </FilesMatch>

@@ -1,10 +1,11 @@
 /*!
- * Digital Lab · auditoría web con IA
- * 1. api/revisar.php revisa la web desde el servidor (HTTPS, cabeceras, SEO técnico, robots, sitemap).
+ * Digital Lab · auditoría web con un equipo de agentes de IA
+ * Mismo flujo que «Auditoría web» del organigrama de Digital Lab:
+ * 1. api/revisar.php revisa la web desde el servidor (seguridad, privacidad, SEO, accesibilidad, rendimiento, conversión).
  * 2. El navegador pide a Google PageSpeed la velocidad, el SEO, la accesibilidad y las buenas prácticas.
- * 3. api/informe.php junta los datos y la IA redacta el resumen.
- * 4. api/enviar.php manda por email el informe detallado si el visitante lo pide.
- * Con ?demo en la dirección se simula todo, para ver la animación sin servidor.
+ * 3. api/agente.php ejecuta cada agente: 25 ∥ 29 → 28 → 15 → 08 → 16 QA (y correcciones si el QA las pide).
+ * 4. Si el 16 QA aprueba el informe, el visitante lo descarga en PDF (informe-pdf.js, generado en su navegador).
+ * Con ?demo en la dirección se simula todo con una auditoría de ejemplo, para ver la animación sin servidor.
  */
 (function () {
   'use strict';
@@ -17,12 +18,67 @@
   const DEMO_NOTE = 'Modo demostración: los resultados son de ejemplo y no se analiza tu web de verdad.';
   const API = 'api/';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const form = q('[data-audit-form]'), input = q('#au-url'), btn = q('[data-audit-btn]'), btnLabel = q('[data-btn-label]');
-  const msg = q('[data-msg]'), agent = q('[data-agent]'), steps = q('[data-steps]'), timer = q('[data-timer]');
-  const result = q('[data-result]'), mailForm = q('[data-mail-form]'), mailMsg = q('[data-mail-msg]');
-  let auditId = null, busy = false;
+  const msg = q('[data-msg]'), agent = q('[data-agent]'), team = q('[data-team]'), steps = q('[data-steps]'), timer = q('[data-timer]');
+  const caption = q('[data-caption]'), leadPill = q('[data-lead-pill]'), result = q('[data-result]');
+  let busy = false, run = null, resumable = false;
   if (DEMO) showMsg(msg, DEMO_NOTE, true);
+
+  /* ---------- El equipo (números y colores del organigrama) ---------- */
+  const LEAD = { n: '15', role: 'AI Auditor', color: '#8b5cff', task: 'Diagnóstico y plan de acción' };
+  const TEAM = [
+    { n: '25', role: 'Cybersecurity', color: '#4f6bff', task: 'Seguridad y privacidad', side: 'l' },
+    { n: '29', role: 'Web Designer', color: '#ff8a3d', task: 'SEO, velocidad y conversión', side: 'l' },
+    { n: '28', role: 'UI/UX Designer', color: '#3b9bff', task: 'Accesibilidad y experiencia', side: 'l' },
+    { n: '08', role: 'Consultor & Propuestas', color: '#ff4fa3', task: 'Cómo puede ayudarte Digital Lab', side: 'r' },
+    { n: '16', role: 'QA & Process Agent', color: '#ffb020', task: 'Revisión de calidad', side: 'r' }
+  ];
+  const WHO = Object.fromEntries([LEAD, ...TEAM].map((a) => [a.n, a]));
+
+  // Avatares: el mismo agente, recoloreado en canvas con el color de cada puesto
+  const src = new Image();
+  const srcReady = new Promise((res) => { src.onload = res; src.onerror = res; });
+  src.src = 'agente.webp?v=20261016d';
+  function tint(canvas, color) {
+    srcReady.then(() => {
+      if (!src.naturalWidth) return;
+      const x = canvas.getContext('2d'), S = canvas.width;
+      x.drawImage(src, 0, 0, S, S);
+      const d = x.getImageData(0, 0, S, S), p = d.data, t = [1, 3, 5].map((i) => parseInt(color.substr(i, 2), 16));
+      for (let i = 0; i < p.length; i += 4) {
+        if (!p[i + 3]) continue;
+        const v = Math.max(p[i], p[i + 1], p[i + 2]) / 255, w = Math.pow(Math.min(p[i], p[i + 1], p[i + 2]) / 255, 1.15);
+        for (let k = 0; k < 3; k++) p[i + k] = Math.min(255, t[k] * v + (255 - t[k]) * w);
+      }
+      x.putImageData(d, 0, 0);
+    });
+  }
+  const seats = {};
+  TEAM.forEach((a, i) => {
+    const el = document.createElement('div');
+    el.className = 'au-seat';
+    el.dataset.st = 'off';
+    el.style.setProperty('--c', a.color);
+    el.style.setProperty('--i', i);
+    el.innerHTML = `<p class="au-tag"><b>${a.n}</b> ${esc(a.role)}</p>`
+      + '<div class="av"><span class="av__glow"></span><div class="av__body"><canvas class="av__img" width="320" height="320"></canvas>'
+      + '<svg class="av__eyes" viewBox="0 0 1254 1254" aria-hidden="true"><path d="M442 607Q499 535 556 607"/><path d="M701 607Q757.5 535 814 607"/></svg></div></div>'
+      + `<p class="au-seat__task">${esc(a.task)}</p><p class="au-pill" data-pill>En espera</p>`;
+    tint(q('canvas', el), a.color);
+    q(`[data-side="${a.side}"]`, team).appendChild(el);
+    seats[a.n] = el;
+  });
+
+  const PILL = { wait: 'En espera', run: 'Trabajando', fix: 'Corrigiendo', ok: 'Listo', err: 'Sin terminar' };
+  function seat(n, st, pill) {
+    if (n === LEAD.n) { leadPill.hidden = false; leadPill.dataset.st = st; leadPill.textContent = pill || PILL[st]; return; }
+    const el = seats[n]; if (!el) return;
+    el.dataset.st = st;
+    q('[data-pill]', el).textContent = pill || PILL[st] || '';
+  }
+  function say(text) { caption.hidden = !text; caption.textContent = text || ''; }
 
   /* ---------- Hilos de datos (la misma animación del hero) ---------- */
   let flow = null;
@@ -31,8 +87,7 @@
     flow = DigitalLabHero.mount(canvas, { density: 0.8, activity: 3.4, seed: 23, beams: true });
     if (flow.setPaused) flow.setPaused(true);
   }
-
-  // Los hilos solo se ven (y solo se animan) mientras el agente analiza una web
+  // Los hilos solo se ven (y solo se animan) mientras los agentes analizan una web
   const flowBox = q('[data-flow]');
   const FLOW_MS = 850;
   let flowTimer = 0;
@@ -45,17 +100,13 @@
     else flowTimer = setTimeout(() => flow.setPaused(true), FLOW_MS);
   }
 
-  function setState(state) {
-    agent.dataset.state = state;
-  }
-
+  function setState(state) { agent.dataset.state = state; }
   function setStep(name, status) {
     const li = q(`[data-step="${name}"]`, steps);
     if (!li) return;
     li.classList.remove('is-active', 'is-done', 'is-skip');
     if (status) li.classList.add('is-' + status);
   }
-
   function showMsg(el, text, ok = false) {
     el.hidden = !text;
     el.textContent = text || '';
@@ -101,12 +152,12 @@
     inaccesible: 'No pudimos acceder a esa web. Revisa que la dirección sea correcta y que esté en línea.',
     limite: 'Has hecho varias auditorías seguidas. Espera un rato y vuelve a intentarlo.',
     sin_servicio: 'El servicio de auditoría no está disponible en este servidor. Pruébalo en dl-dev.com/auditoria.',
-    email_invalido: 'Revisa el email: parece que no es válido.',
-    sin_consentimiento: 'Para enviarte el informe necesitamos que aceptes la política de privacidad.',
-    expirada: 'Esta auditoría ya caducó. Vuelve a analizar la web para pedir el informe.',
+    expirada: 'Esta auditoría ya caducó. Vuelve a analizar la web.',
+    ia_no_disponible: 'Uno de nuestros agentes no pudo terminar su parte.',
+    ia_no_configurada: 'Nuestros agentes no están disponibles en este momento. Vuelve a intentarlo más tarde.',
     error: 'Algo falló en la auditoría. Vuelve a intentarlo en unos minutos.'
   };
-  const errText = (e) => ERRORS[e && e.message] || (e && e.name === 'AbortError' ? 'La auditoría tardó demasiado. Vuelve a intentarlo.' : ERRORS.error);
+  const errText = (e) => ERRORS[e && e.message] || (e && e.name === 'AbortError' ? 'Un agente tardó demasiado en responder.' : ERRORS.error);
 
   /* ---------- Google PageSpeed (desde el navegador) ---------- */
   async function pageSpeed(url, key) {
@@ -151,28 +202,49 @@
     };
   }
 
-  /* ---------- Pintar el resultado ---------- */
-  const SCORE_LABELS = { rendimiento: 'Rendimiento', seo: 'SEO', accesibilidad: 'Accesibilidad', buenas_practicas: 'Buenas prácticas' };
-
-  function renderScores(psi) {
-    const box = q('[data-scores]');
-    box.textContent = '';
-    for (const [key, label] of Object.entries(SCORE_LABELS)) {
-      const v = psi && psi.scores ? psi.scores[key] : undefined;
-      const el = document.createElement('div');
-      el.className = 'au-score' + (v === undefined ? ' is-empty' : '');
-      const color = v === undefined ? 'var(--faint)' : v >= 90 ? 'var(--green)' : v >= 50 ? 'var(--lime)' : 'var(--warn)';
-      el.style.setProperty('--c', color);
-      const C = 2 * Math.PI * 40;
-      el.innerHTML = `<svg viewBox="0 0 96 96" aria-hidden="true"><circle class="track" cx="48" cy="48" r="40"/><circle class="val" cx="48" cy="48" r="40" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/></svg><b></b><span></span>`;
-      q('b', el).textContent = v === undefined ? '—' : String(v);
-      q('span', el).textContent = label;
-      box.appendChild(el);
-      if (v !== undefined) requestAnimationFrame(() => requestAnimationFrame(() => { q('.val', el).style.strokeDashoffset = (C * (1 - v / 100)).toFixed(1); }));
-    }
+  /* ---------- Notas (igual que en el organigrama) ---------- */
+  const AREAS = { seguridad: 'Seguridad', privacidad: 'Privacidad', seo: 'SEO', rendimiento: 'Rendimiento', accesibilidad: 'Accesibilidad', conversion: 'Conversión' };
+  function areaScore(checks, areas) {
+    const list = (checks || []).filter((c) => areas.includes(c.area) && c.estado !== 'na');
+    if (!list.length) return null;
+    return Math.round(100 * list.reduce((s, c) => s + (c.estado === 'ok' ? 1 : c.estado === 'warn' ? 0.5 : 0), 0) / list.length);
+  }
+  function auScores(d) {
+    const p = (d.psi && d.psi.scores) || {};
+    const s = [
+      { k: 'rendimiento', l: 'Rendimiento', v: p.rendimiento != null ? p.rendimiento : areaScore(d.checks, ['rendimiento']), src: p.rendimiento != null ? 'Google' : 'Revisión' },
+      { k: 'seo', l: 'SEO', v: p.seo != null ? p.seo : areaScore(d.checks, ['seo']), src: p.seo != null ? 'Google' : 'Revisión' },
+      { k: 'accesibilidad', l: 'Accesibilidad', v: p.accesibilidad != null ? p.accesibilidad : areaScore(d.checks, ['accesibilidad']), src: p.accesibilidad != null ? 'Google' : 'Revisión' },
+      { k: 'seguridad', l: 'Seguridad', v: areaScore(d.checks, ['seguridad', 'privacidad']), src: 'Revisión' }
+    ];
+    const vals = s.map((x) => x.v).filter((v) => v != null);
+    return { list: s, global: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null };
+  }
+  function auAreas(r) {
+    const o = r.out, s = (o.au25 || {}).seguridad, z = o.au29 || {}, a = (o.au28 || {}).accesibilidad;
+    return [['seguridad', 'Seguridad y privacidad', s], ['seo', 'SEO', z.seo], ['rendimiento', 'Velocidad', z.rendimiento], ['accesibilidad', 'Accesibilidad', a], ['conversion', 'Conversión', z.conversion]].filter((x) => x[2]);
   }
 
-  // Mini formato seguro para el texto de la IA: párrafos, listas con «- » y **negrita** (sin HTML)
+  /* ---------- Pintar el resultado ---------- */
+  const scoreColor = (v) => v == null ? 'var(--faint)' : v >= 90 ? 'var(--green)' : v >= 50 ? 'var(--lime)' : 'var(--warn)';
+  function ring(v, label, sub, big) {
+    const C = 2 * Math.PI * 40;
+    const el = document.createElement('div');
+    el.className = 'au-score' + (big ? ' au-score--big' : '') + (v == null ? ' is-empty' : '');
+    el.style.setProperty('--c', scoreColor(v));
+    el.innerHTML = `<svg viewBox="0 0 96 96" aria-hidden="true"><circle class="track" cx="48" cy="48" r="40"/><circle class="val" cx="48" cy="48" r="40" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}"/></svg>`
+      + `<b>${v == null ? '—' : v}</b><span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}`;
+    if (v != null) requestAnimationFrame(() => requestAnimationFrame(() => { q('.val', el).style.strokeDashoffset = (C * (1 - v / 100)).toFixed(1); }));
+    return el;
+  }
+  function renderScores(d) {
+    const box = q('[data-scores]'), sc = auScores(d);
+    box.textContent = '';
+    box.appendChild(ring(sc.global, 'Nota global', 'Promedio de las 4 notas', true));
+    sc.list.forEach((x) => box.appendChild(ring(x.v, x.l, x.src === 'Google' ? 'Google PageSpeed' : 'Revisión Digital Lab')));
+  }
+
+  // Mini formato seguro para el texto de los agentes: párrafos, listas con «- » y **negrita** (sin HTML)
   function renderText(container, text) {
     container.textContent = '';
     let list = null;
@@ -196,61 +268,115 @@
     });
   }
 
-  const GROUPS = { seguridad: 'Seguridad', seo: 'SEO técnico', tecnico: 'Funcionamiento' };
-  function renderChecks(checks, psi) {
-    const box = q('[data-checks]');
-    box.textContent = '';
-    const groups = {};
-    (checks || []).forEach((c) => { (groups[c.area] = groups[c.area] || []).push(c); });
-    const issues = psi && psi.issues ? Object.values(psi.issues).flat() : [];
-    if (issues.length) groups.google = issues.slice(0, 8).map((t) => ({ estado: 'warn', titulo: t }));
-    const names = { ...GROUPS, google: 'Mejoras que sugiere Google' };
-    for (const [area, items] of Object.entries(groups)) {
-      const g = document.createElement('section');
-      g.className = 'au-group';
-      const h = document.createElement('h3'); h.textContent = names[area] || area; g.appendChild(h);
-      const ul = document.createElement('ul');
-      items.forEach((c) => {
-        const li = document.createElement('li');
-        li.dataset.s = c.estado;
-        const i = document.createElement('i'); i.textContent = c.estado === 'ok' ? '✓' : c.estado === 'warn' ? '!' : '✕';
-        const d = document.createElement('div'); d.textContent = c.titulo;
-        if (c.detalle) { const sm = document.createElement('small'); sm.textContent = c.detalle; d.appendChild(sm); }
-        li.append(i, d); ul.appendChild(li);
-      });
-      g.appendChild(ul); box.appendChild(g);
+  const EST = { ok: '✓', warn: '!', bad: '✕' };
+  function renderReport(r) {
+    const rep = r.out.au15 || {}, off = r.out.au08 || {};
+    renderText(q('[data-summary]'), (rep.diagnostico || '') + '\n\n' + (rep.resumen_corto || ''));
+    let h = '';
+    auAreas(r).forEach(([, name, a]) => {
+      h += `<section class="au-box"><h3>${esc(name)}</h3><p>${esc(a.resumen || '')}</p><ul class="au-finds">`
+        + (a.hallazgos || []).map((f) => `<li data-s="${esc(f.estado)}"><i>${EST[f.estado] || '·'}</i><div><b>${esc(f.titulo)}</b>`
+          + `<p>${esc(f.por_que || '')}${f.como ? ` <strong>Cómo:</strong> ${esc(f.como)}` : ''}</p></div>`
+          + (f.estado === 'ok' ? '' : `<span class="au-chip" data-i="${esc(f.impacto)}">impacto ${esc(f.impacto || '-')}</span>`) + '</li>').join('')
+        + '</ul></section>';
+    });
+    if ((rep.plan || []).length) {
+      h += '<section class="au-box au-box--plan"><h3>Plan de acción</h3><ol class="au-plan">'
+        + rep.plan.map((p) => `<li><span>${esc(p.tarea)}</span><span class="au-chip" data-i="${esc(p.impacto)}">impacto ${esc(p.impacto)}</span><span class="au-chip">esfuerzo ${esc(p.esfuerzo)}</span></li>`).join('')
+        + '</ol>' + (rep.lo_que_ganarias ? `<p class="au-gain">${esc(rep.lo_que_ganarias)}</p>` : '') + '</section>';
     }
+    if (off.titular) {
+      h += `<section class="au-box au-box--offer"><p class="eyebrow"><i></i>Digital Lab</p><h3>${esc(off.titular)}</h3><p>${esc(off.texto || '')}</p>`
+        + '<ul class="au-services">' + (off.servicios || []).map((s) => `<li><b>${esc(s.servicio)}</b><span>${esc(s.por_que)}</span></li>`).join('') + '</ul>'
+        + `<a class="btn btn--primary" href="../#contacto">${esc(off.cta || 'Hablemos de tu web')}</a></section>`;
+    }
+    q('[data-areas]').innerHTML = h;
   }
 
-  // Resumen de respaldo si la IA no responde
-  function localSummary(checks, psi) {
-    const bad = (checks || []).filter((c) => c.estado !== 'ok');
-    const lines = [];
-    if (psi && psi.scores) {
-      const s = psi.scores;
-      lines.push(`La web obtiene **${s.rendimiento ?? '—'}/100 en rendimiento**, ${s.seo ?? '—'} en SEO, ${s.accesibilidad ?? '—'} en accesibilidad y ${s.buenas_practicas ?? '—'} en buenas prácticas (medición de Google en móvil).`);
-    }
-    if (bad.length) {
-      lines.push('', 'Lo más importante para mejorar:');
-      bad.slice(0, 5).forEach((c) => lines.push('- ' + c.titulo + (c.detalle ? ': ' + c.detalle : '')));
-    } else lines.push('', 'No encontramos problemas importantes en la revisión técnica.');
-    return lines.join('\n');
+  // Comprobaciones automáticas: solo se muestran si el informe redactado queda retenido
+  function renderChecks(d) {
+    const box = q('[data-checks]'), groups = {};
+    d.checks.forEach((c) => { (groups[c.area] = groups[c.area] || []).push(c); });
+    box.innerHTML = Object.keys(groups).map((k) => `<section class="au-group"><h3>${esc(AREAS[k] || k)}</h3><ul>`
+      + groups[k].map((c) => `<li data-s="${esc(c.estado)}"><i>${EST[c.estado] || '–'}</i><div>${esc(c.titulo)}${c.detalle ? `<small>${esc(c.detalle)}</small>` : ''}</div></li>`).join('')
+      + '</ul></section>').join('');
   }
 
-  /* ---------- Modo demostración ---------- */
-  const DEMO_DATA = {
-    checks: [
-      { area: 'seguridad', estado: 'ok', titulo: 'HTTPS activo con certificado válido', detalle: 'Caduca dentro de 87 días.' },
-      { area: 'seguridad', estado: 'bad', titulo: 'Falta HSTS', detalle: 'El navegador no está obligado a usar siempre HTTPS.' },
-      { area: 'seguridad', estado: 'warn', titulo: 'Política de contenido (CSP) ausente', detalle: 'Ayuda a bloquear código inyectado.' },
-      { area: 'seo', estado: 'ok', titulo: 'Título de la página correcto', detalle: '«Tu empresa | Servicios» (24 caracteres).' },
-      { area: 'seo', estado: 'bad', titulo: 'Sin meta descripción', detalle: 'Google mostrará un fragmento elegido al azar.' },
-      { area: 'seo', estado: 'warn', titulo: 'Sin sitemap.xml', detalle: 'Facilita que Google encuentre todas las páginas.' },
-      { area: 'tecnico', estado: 'ok', titulo: 'Respuesta del servidor rápida', detalle: '0,31 s hasta el primer byte.' }
-    ],
-    psi: { scores: { rendimiento: 54, seo: 82, accesibilidad: 76, buenas_practicas: 92 }, metrics: {}, issues: { rendimiento: ['Reduce el JavaScript que no se usa', 'Usa formatos de imagen modernos'], seo: ['El documento no tiene una metadescripción'] } },
-    summary: 'Tu web funciona y es segura en lo básico, pero **pierde visitas por velocidad y SEO**.\n\n- **Velocidad (54/100):** las imágenes pesan demasiado y hay JavaScript que no se usa. En móvil tarda en mostrarse.\n- **SEO:** falta la meta descripción y el sitemap, dos ajustes rápidos que ayudan a aparecer en Google.\n- **Seguridad:** añadir HSTS y una política de contenido cierra las puertas más comunes a ataques.\n\nCon estos cambios la web cargaría casi el doble de rápido y estaría mejor preparada para captar clientes.'
+  function renderResult(r) {
+    const d = r.data, ok = r.aprobado;
+    q('[data-site]').textContent = d.host;
+    q('[data-demo-tag]').hidden = d.origen !== 'ejemplo';
+    renderScores(d);
+    q('[data-diagnosis]').hidden = !ok;
+    q('[data-download]').hidden = !ok;
+    q('[data-held]').hidden = ok;
+    q('[data-checks]').hidden = ok;
+    q('[data-pdf-note]').textContent = '';
+    if (ok) renderReport(r); else { q('[data-areas]').textContent = ''; renderChecks(d); }
+    q('[data-held-wa]').href = 'https://wa.me/5493496532749?text=' + encodeURIComponent('Hola Digital Lab, hice la auditoría de ' + d.host + ' y me gustaría recibir el informe revisado.');
+    result.hidden = false;
+  }
+
+  /* ---------- Modo demostración: una auditoría de ejemplo del organigrama ---------- */
+  let demoData = null;
+  async function loadDemo() {
+    if (!demoData) demoData = await fetch('demo.json?v=20261019a').then((r) => { if (!r.ok) throw new Error('error'); return r.json(); });
+    return demoData;
+  }
+
+  /* ---------- Un paso del flujo: un agente trabaja ---------- */
+  const STEP_OF = { au25: '25', au29: '29', au28: '28', au15: '15', au08: '08', au16: '16', au16b: '16' };
+  const CAPTION = {
+    au25: 'El 25 · Cybersecurity revisa la seguridad y la privacidad de tu web.',
+    au29: 'El 29 · Web Designer analiza el SEO, la velocidad y la conversión.',
+    au28: 'El 28 · UI/UX Designer comprueba la accesibilidad y la experiencia de uso.',
+    au15: 'El 15 · AI Auditor integra el trabajo del equipo en un diagnóstico y un plan de acción.',
+    au08: 'El 08 · Consultor prepara cómo te puede ayudar Digital Lab.',
+    au16: 'El 16 · QA revisa la calidad del informe antes de entregártelo.',
+    au16b: 'El 16 · QA vuelve a revisar el informe corregido.'
   };
+  async function step(r, paso) {
+    if (r.done[paso]) return r.done[paso];
+    const fix = paso.startsWith('fix'), n = fix ? paso.slice(3) : STEP_OF[paso];
+    seat(n, fix ? 'fix' : 'run', paso === 'au16b' ? 'Revisando otra vez' : null);
+    say(fix ? `El ${n} · ${WHO[n].role} corrige lo que pidió el agente de calidad.` : CAPTION[paso]);
+    let data;
+    try {
+      if (DEMO) {
+        await sleep(paso === 'au16' ? 3200 : 2200 + Math.random() * 1600);
+        data = paso.startsWith('au16') ? { aprobado: true, corregir: [] } : demoData.out['au' + n];
+      } else {
+        data = (await post('agente.php', { id: r.id, paso, psi: r.data.psi }, 330000)).data;
+      }
+    } catch (e) {
+      seat(n, 'err');
+      e.agente = n;
+      throw e;
+    }
+    r.done[paso] = data;
+    if (!paso.startsWith('au16')) r.out['au' + n] = data;
+    seat(n, 'ok', fix ? 'Corregido' : paso.startsWith('au16') ? (data.aprobado ? 'Aprobado' : 'Pide cambios') : null);
+    return data;
+  }
+
+  async function pipeline(r) {
+    setStep('equipo', 'active');
+    TEAM.forEach((a) => { if (seats[a.n].dataset.st === 'off') seat(a.n, 'wait'); });
+    seat(LEAD.n, 'wait', 'Coordinando');
+    await Promise.all([step(r, 'au25'), step(r, 'au29')]);
+    await step(r, 'au28');
+    setStep('equipo', 'done'); setStep('informe', 'active');
+    await step(r, 'au15');
+    await step(r, 'au08');
+    setStep('informe', 'done'); setStep('calidad', 'active');
+    let qa = await step(r, 'au16');
+    if (!qa.aprobado && qa.corregir.length) {
+      for (const n of ['25', '29', '28', '15', '08'].filter((x) => qa.corregir.includes(x))) await step(r, 'fix' + n);
+      qa = await step(r, 'au16b');
+    }
+    r.aprobado = !!qa.aprobado;
+    setStep('calidad', 'done');
+  }
 
   /* ---------- Flujo principal ---------- */
   let t0 = 0, tick = 0;
@@ -258,73 +384,79 @@
     t0 = performance.now();
     timer.hidden = false;
     clearInterval(tick);
-    tick = setInterval(() => { timer.textContent = `Analizando · ${Math.round((performance.now() - t0) / 1000)} s`; }, 500);
+    tick = setInterval(() => { timer.textContent = `Analizando · ${fmtSecs((performance.now() - t0) / 1000)}`; }, 500);
   }
+  function fmtSecs(s) { s = Math.round(s); return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`; }
   function stopTimer(text) { clearInterval(tick); timer.textContent = text || ''; timer.hidden = !text; }
 
-  async function runAudit(url) {
+  async function runAudit(url, resume) {
     busy = true;
     btn.disabled = true;
     btnLabel.textContent = 'Analizando…';
     showMsg(msg, DEMO ? DEMO_NOTE : '', true);
     result.hidden = true;
     steps.hidden = false;
-    qa('li', steps).forEach((li) => li.classList.remove('is-active', 'is-done', 'is-skip'));
+    team.dataset.state = 'working';
     setState('working');
+    seat(LEAD.n, 'run', 'Revisando la web');
     showFlow(true);
     startTimer();
-    if (!reduce) q('.au-agent-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!resume) {
+      qa('li', steps).forEach((li) => li.classList.remove('is-active', 'is-done', 'is-skip'));
+      TEAM.forEach((a) => seat(a.n, 'off'));
+      if (!reduce) q('.au-team').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     try {
-      // 1. Revisión desde nuestro servidor
-      setStep('conexion', 'active');
-      const r1 = DEMO ? (await sleep(1800), { id: 'demo', url, host: new URL(url).hostname, checks: DEMO_DATA.checks, psiKey: '' })
-        : await post('revisar.php', { url, web: form.elements.web.value });
-      auditId = r1.id;
-      setStep('conexion', 'done');
-      setStep('seguridad', 'active');
-      await sleep(DEMO ? 1400 : 500);
-      setStep('seguridad', 'done');
+      if (!resume) {
+        // 1. Revisión automática desde nuestro servidor
+        setStep('conexion', 'active');
+        say('El 15 · AI Auditor visita tu web y hace la revisión automática.');
+        let r1;
+        if (DEMO) { const demo = await loadDemo(); await sleep(1800); r1 = { id: 'demo', ...demo.data, psiKey: '' }; }
+        else r1 = await post('revisar.php', { url, web: form.elements.web.value });
+        setStep('conexion', 'done');
 
-      // 2. Google PageSpeed
-      setStep('velocidad', 'active');
-      const psi = DEMO ? (await sleep(3200), DEMO_DATA.psi) : await pageSpeed(r1.url, r1.psiKey);
-      setStep('velocidad', psi ? 'done' : 'skip');
-      setStep('seo', 'active');
-      await sleep(DEMO ? 1200 : 400);
-      setStep('seo', 'done'); // el SEO lo revisa siempre nuestro servidor; Google solo añade la nota
-
-      // 3. Resumen con IA
-      setStep('informe', 'active');
-      let summary = '';
-      if (DEMO) { await sleep(2600); summary = DEMO_DATA.summary; }
-      else {
-        try { summary = (await post('informe.php', { id: auditId, psi }, 60000)).summary; } catch (e) { summary = ''; }
+        // 2. Google PageSpeed
+        setStep('velocidad', 'active');
+        say('Medimos la velocidad de tu web en móvil con Google PageSpeed.');
+        const psi = DEMO ? (await sleep(2400), r1.psi) : await pageSpeed(r1.url, r1.psiKey);
+        setStep('velocidad', psi ? 'done' : 'skip');
+        run = { id: r1.id, ts: Date.now(), data: { url: r1.url, host: r1.host, checks: r1.checks, terceros: r1.terceros || [], stats: r1.stats || {}, psi, origen: DEMO ? 'ejemplo' : 'servidor' }, out: {}, done: {}, aprobado: false };
       }
-      setStep('informe', summary ? 'done' : 'skip');
+
+      // 3. El equipo de agentes
+      say('El 15 · AI Auditor reúne al equipo.');
+      await sleep(reduce ? 0 : 900);
+      await pipeline(run);
 
       // 4. Resultado
-      q('[data-site]').textContent = r1.host;
-      renderScores(psi);
-      renderText(q('[data-summary]'), summary || localSummary(r1.checks, psi));
-      renderChecks(r1.checks, psi);
-      result.hidden = false;
+      seat(LEAD.n, 'ok', run.aprobado ? 'Informe listo' : 'Informe retenido');
+      say(run.aprobado ? 'Informe aprobado por el agente de calidad. Ya puedes descargarlo.' : 'El agente de calidad pidió una revisión humana del informe.');
+      renderResult(run);
       setState('done');
+      team.dataset.state = 'done';
       showFlow(false);
-      stopTimer(`Listo en ${Math.round((performance.now() - t0) / 1000)} s`);
-      showMsg(mailMsg, '');
+      stopTimer(`Listo en ${fmtSecs((performance.now() - t0) / 1000)}`);
+      btnLabel.textContent = 'Analizar otra web';
       // primero se recogen los hilos y luego se baja al resultado, para que la página no salte
       if (!reduce) setTimeout(() => result.scrollIntoView({ behavior: 'smooth', block: 'start' }), FLOW_MS + 150);
     } catch (e) {
       setState('error');
+      team.dataset.state = 'error';
+      seat(LEAD.n, 'err', 'En pausa');
       showFlow(false);
       stopTimer('');
-      steps.hidden = true;
-      showMsg(msg, errText(e));
+      const who = e.agente && WHO[e.agente] ? ` (${e.agente} · ${WHO[e.agente].role})` : '';
+      const canResume = run && e.agente && !['expirada', 'limite'].includes(e.message);
+      showMsg(msg, errText(e).replace(/\.$/, who + '.') + (canResume ? ' Pulsa «Continuar» para seguir desde ahí: lo que ya está hecho no se repite.' : ''));
+      say('');
+      resumable = !!canResume;
+      btnLabel.textContent = canResume ? 'Continuar' : 'Analizar mi web';
+      if (!canResume) { run = null; steps.hidden = true; team.dataset.state = 'idle'; }
     } finally {
       busy = false;
       btn.disabled = false;
-      btnLabel.textContent = 'Analizar otra web';
     }
   }
 
@@ -334,38 +466,46 @@
     if (form.elements.web.value) return;   // campo trampa relleno
     const url = normalizeUrl(input.value);
     if (!url) { showMsg(msg, ERRORS.url_invalida); input.focus(); return; }
+    // «Continuar» retoma la misma web; si cambió la dirección, empieza una auditoría nueva
+    const resume = resumable && !!run && url === input.dataset.last;
+    resumable = false;
     input.value = url;
-    runAudit(url);
+    input.dataset.last = url;
+    if (!resume) run = null;
+    runAudit(url, resume);
   });
 
-  /* ---------- Informe detallado por email ---------- */
-  mailForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (mailForm.elements.web.value) return;
-    const email = mailForm.elements.email.value.trim();
-    const okEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 254;
-    const consent = mailForm.elements.consent.checked;
-    mailForm.elements.email.classList.toggle('is-invalid', !okEmail);
-    q('.field--check', mailForm).classList.toggle('is-invalid', !consent);
-    if (!okEmail) { showMsg(mailMsg, ERRORS.email_invalido); return; }
-    if (!consent) { showMsg(mailMsg, ERRORS.sin_consentimiento); return; }
-    const b = q('[data-mail-btn]');
-    b.disabled = true;
-    b.textContent = 'Enviando…';
-    setState('working');
+  /* ---------- Informe en PDF (se genera en el navegador) ---------- */
+  function loadScript(srcUrl) {
+    return new Promise((res, rej) => {
+      if (document.querySelector(`script[src="${srcUrl}"]`)) return res();
+      const s = document.createElement('script');
+      s.src = srcUrl; s.onload = res; s.onerror = () => rej(new Error('script'));
+      document.head.appendChild(s);
+    });
+  }
+  const pdfBtn = q('[data-pdf-btn]'), pdfLabel = q('[data-pdf-label]'), pdfNote = q('[data-pdf-note]');
+  pdfBtn.addEventListener('click', async () => {
+    if (!run || !run.aprobado) return;
+    pdfBtn.disabled = true;
+    pdfLabel.textContent = 'Preparando el PDF…';
+    pdfNote.textContent = '';
     try {
-      if (DEMO) await sleep(2200);
-      else await post('enviar.php', { id: auditId, email, consent: true, web: '' }, 90000);
-      showMsg(mailMsg, DEMO ? `Demostración: en la web publicada, el informe detallado llegaría a ${email}.`
-        : `¡Listo! Te enviamos el informe detallado a ${email}. Revisa también la carpeta de spam.`, true);
-      mailForm.elements.email.value = '';
-      mailForm.elements.consent.checked = false;
+      await loadScript('vendor/jspdf.umd.min.js?v=2.5.1');
+      await loadScript('informe-pdf.js?v=20261019a');
+      const blob = await window.DigitalLabInformePDF.build(run, { scores: auScores(run.data), areas: auAreas(run), areaScore });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'auditoria-' + String(run.data.host || 'web').replace(/[^\w.-]+/g, '-') + '-digital-lab.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      pdfNote.textContent = `PDF descargado (${Math.max(1, Math.round(blob.size / 1024))} KB).`;
     } catch (err) {
-      showMsg(mailMsg, errText(err));
+      console.error(err);
+      pdfNote.textContent = 'No se pudo preparar el PDF. Recarga la página y vuelve a intentarlo.';
     } finally {
-      setState('done');
-      b.disabled = false;
-      b.textContent = 'Enviarme el informe';
+      pdfBtn.disabled = false;
+      pdfLabel.textContent = 'Descargar informe PDF';
     }
   });
 

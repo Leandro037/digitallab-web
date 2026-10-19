@@ -19,6 +19,7 @@ js/text-build.js      Títulos que se construyen con cuadraditos («lluvia de da
 js/landing.js         Hilos por toda la página, servicios, carrusel, panel de la visita, WhatsApp y formulario
 img/                  Imágenes del carrusel (WebP)
 auditoria/            Auditoría web gratuita con IA (página + servidor PHP en auditoria/api/)
+login/                Acceso al panel de administración (página + entrar.php)
 ```
 
 ## Verla en local
@@ -55,6 +56,7 @@ fonts/   (2 .woff2 + OFL.txt)
 img/     (6 .webp)
 js/      (4 .js)
 auditoria/  (completa, con sus 3 archivos .htaccess; ver «Auditoría web»)
+login/      (completa; ver «Acceso al panel»)
 ```
 
 No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
@@ -66,21 +68,36 @@ No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` 
 
 ## Auditoría web (`/auditoria/`)
 
-El visitante pega una URL y el agente la revisa: nuestro servidor comprueba seguridad y SEO (`api/revisar.php`), el navegador mide la velocidad con Google PageSpeed Insights, y Claude redacta un resumen (`api/informe.php`). Si deja su email, recibe un informe detallado (`api/enviar.php`). Con `?demo` al final de la dirección se ve una simulación sin gastar nada. En GitHub Pages la página funciona siempre en ese modo, porque Pages no ejecuta PHP.
+El visitante pega una URL y un equipo de agentes la audita, con el mismo flujo «Auditoría web» que el organigrama de Digital Lab:
 
-**Requisitos:** PHP 8.1 o superior con `curl`, `mbstring` y `dom` (en Hostinger vienen activadas), y la función `mail()`.
+1. `api/revisar.php`: nuestro servidor visita la web y revisa seguridad, privacidad, SEO, accesibilidad, rendimiento y conversión.
+2. El navegador mide la velocidad con Google PageSpeed Insights.
+3. `api/agente.php`: trabajan los agentes, un paso por petición: 25 Cybersecurity y 29 Web Designer → 28 UI/UX Designer → 15 AI Auditor (diagnóstico y plan) → 08 Consultor → 16 QA. Si el 16 pide cambios, corrigen los agentes señalados y el 16 revisa otra vez.
+4. Si el 16 aprueba, el visitante descarga el informe en PDF (`informe-pdf.js` con jsPDF en `vendor/` y las tipografías de `fuentes-pdf/`; se genera en su navegador). Si no lo aprueba ni tras la corrección, el informe queda retenido y se le ofrece pedirlo por WhatsApp.
+
+Con `?demo` al final de la dirección se ve una simulación con la auditoría de ejemplo de `demo.json`, sin gastar nada. En GitHub Pages la página funciona siempre en ese modo, porque Pages no ejecuta PHP.
+
+**Requisitos:** PHP 8.1 o superior con `curl`, `mbstring` y `dom` (en Hostinger vienen activadas).
 
 **Configuración** (una sola vez):
 
 1. Copia `auditoria/api/config.example.php` como `dl-auditoria-config.php` en la carpeta que está **por encima** de `public_html`, y complétalo. Si no se puede, cópialo como `auditoria/api/config.php` (lo protege `.htaccess` y git lo ignora). **Nunca subas las claves a GitHub.**
 2. `anthropic_api_key`: en console.anthropic.com → API Keys. Pon un límite de gasto mensual en la consola.
 3. `google_psi_key`: en console.cloud.google.com, activa «PageSpeed Insights API», crea una clave y restríngela a sitios web `https://dl-dev.com/*` (el navegador la usa directamente, por eso debe estar restringida).
-4. Crea en Hostinger el buzón `auditoria@dl-dev.com` (remitente de los informes) y pon en `email_avisos` dónde quieres recibir cada solicitud.
+4. **Agentes:** en el organigrama, «Exportar la configuración para la web» descarga un JSON con la instrucción, el modelo y el esfuerzo de cada agente. Súbelo como `dl-auditoria-agentes.json` junto a `dl-auditoria-config.php` (fuera de `public_html`). Contiene información interna: **nunca lo subas a GitHub**. Cada vez que cambies un agente en el organigrama, exporta y reemplaza el archivo.
 5. Cambia `sal` por un texto largo y aleatorio.
 
-**Protecciones:** solo audita webs públicas (rechaza IP privadas, `localhost`, puertos que no sean 80/443 y redirecciones hacia la red interna); límites de 6 auditorías por hora y 3 emails por día por visitante, y 300 llamadas a la IA por día en total (ajustables en la configuración); campo trampa contra bots; solo acepta peticiones desde dl-dev.com. Los datos de cada auditoría se guardan en `auditoria/api/data/` (bloqueada desde internet) y se borran a las 24 h o al enviar el informe.
+**Protecciones:** solo audita webs públicas (rechaza IP privadas, `localhost`, puertos que no sean 80/443 y redirecciones hacia la red interna); 6 auditorías por hora por visitante, 20 llamadas a la IA por auditoría y 400 por día en total (ajustables en la configuración); el servidor decide qué datos recibe cada agente y en qué orden; campo trampa contra bots; solo acepta peticiones desde dl-dev.com. Los datos de cada auditoría se guardan en `auditoria/api/data/` (bloqueada desde internet) y se borran a las 24 h. Cada llamada a la IA deja su consumo de tokens en el registro de errores de PHP.
 
-**Coste aproximado:** cada resumen es una llamada corta a Claude Sonnet 5.5 y cada informe por email, una algo más larga; con el límite diario por defecto el gasto máximo queda acotado. PageSpeed Insights es gratuito.
+**Coste aproximado:** con todos los agentes en Claude Opus 5.5, unos US$0,56 por auditoría si el 16 la aprueba a la primera y unos US$1,13 si pide correcciones (medido el 19/10/2026); tarda de 2 a 5 minutos. PageSpeed Insights es gratuito.
+
+## Acceso al panel (`/login/`)
+
+El botón «Login» del menú lleva a `login/`. `login/entrar.php` comprueba el email y la contraseña en el servidor y, si son correctos, devuelve la dirección del panel (el organigrama de Digital Lab en claude.ai). Ni la contraseña ni esa dirección están en el código público. Se configuran en `dl-auditoria-config.php`:
+
+- `admin_email`, `admin_password_hash` (la contraseña cifrada: `php -r "echo password_hash('LA_CONTRASEÑA', PASSWORD_DEFAULT);"`) y `admin_url`.
+
+Límite de 8 intentos cada 15 minutos por visitante. Ojo: si el organigrama es público en claude.ai, quien tenga su dirección puede abrirlo sin pasar por aquí. En GitHub Pages el login no funciona (no hay PHP).
 
 ## SEO
 

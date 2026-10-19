@@ -2,3 +2,4 @@
 auditoria/api/config.php
 auditoria/api/data/*
 !auditoria/api/data/.htaccess
+auditoria/api/agentes.json
