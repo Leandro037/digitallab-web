@@ -841,8 +841,16 @@
   const form = q('[data-form]');
   if (form) {
     const note = q('[data-form-note]', form);
-    form.addEventListener('submit', (e) => {
+    const sendBtn = q('button[type="submit"]', form);
+    const FAIL = 'No pudimos enviar tu mensaje. Inténtalo de nuevo en unos minutos o escríbenos por WhatsApp o a digital-lab@dl-dev.com.';
+    const FORM_ERRORS = {
+      datos: 'Revisa los campos marcados: nombre, un email válido, tu mensaje y la aceptación de la política de privacidad.',
+      limite: 'Has enviado varios mensajes seguidos. Espera un rato o escríbenos por WhatsApp.'
+    };
+    let sending = false;
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (sending) return;
       // Campo trampa relleno: lo envió un robot, se descarta sin avisar
       if (form.elements.web && form.elements.web.value) return;
       let ok = true;
@@ -854,9 +862,33 @@
         if (bad) ok = false;
       });
       note.hidden = false;
-      note.textContent = ok
-        ? 'Este formulario es una maqueta y todavía no envía mensajes. Cuando lo conectes a tu correo o CRM, aquí aparecerá la confirmación.'
-        : 'Revisa los campos marcados: nombre, un email válido, tu mensaje y la aceptación de la política de privacidad.';
+      if (!ok) { note.textContent = FORM_ERRORS.datos; return; }
+
+      const el = form.elements;
+      sending = true;
+      sendBtn.disabled = true;
+      note.textContent = 'Enviando…';
+      try {
+        const r = await fetch('contacto/enviar.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nombre: el.nombre.value, email: el.email.value, empresa: el.empresa.value,
+            servicio: el.servicio.value, mensaje: el.mensaje.value, privacidad: el.privacidad.checked, web: el.web.value
+          })
+        });
+        let body = null;
+        try { body = await r.json(); } catch (err) { /* respuesta no JSON (p. ej. sin PHP) */ }
+        if (!r.ok || !body || !body.ok) throw new Error((body && body.error) || 'error');
+        const email = el.email.value.trim();
+        form.reset();
+        note.textContent = `¡Gracias! Recibimos tu mensaje y te responderemos a ${email}.`;
+      } catch (err) {
+        note.textContent = FORM_ERRORS[err.message] || FAIL;
+      } finally {
+        sending = false;
+        sendBtn.disabled = false;
+      }
     });
   }
 

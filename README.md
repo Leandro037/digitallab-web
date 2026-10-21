@@ -20,6 +20,7 @@ js/landing.js         Hilos por toda la página, servicios, carrusel, panel de l
 img/                  Imágenes del carrusel (WebP)
 auditoria/            Auditoría web gratuita con IA (página + servidor PHP en auditoria/api/)
 login/                Acceso al panel de administración (página + entrar.php)
+contacto/enviar.php   Envía por correo los mensajes del formulario de contacto
 ```
 
 ## Verla en local
@@ -36,7 +37,7 @@ y entra en http://localhost:8000.
 
 - **WhatsApp:** número y mensaje inicial en `js/landing.js` (`WHATSAPP_NUMBER` y `WHATSAPP_MESSAGE`).
 - **Imágenes del carrusel:** reemplaza los archivos de `img/` manteniendo los nombres; se recortan al centro para llenar el recuadro (16:9 en escritorio, 4:5 en móvil).
-- **Formulario de contacto:** es una maqueta y todavía no envía mensajes; hay que conectarlo a un correo o CRM. Ya incluye la casilla de consentimiento, la información básica de privacidad, límites de longitud y un campo trampa (`web`) contra el spam: el servicio que lo reciba debe validar los datos en el servidor y descartar los envíos con ese campo relleno.
+- **Formulario de contacto:** `contacto/enviar.php` valida los datos en el servidor, descarta los envíos con el campo trampa (`web`) relleno, limita a 5 mensajes por hora por visitante y 200 al día, y envía cada mensaje por SMTP al buzón de Digital Lab con «Responder a» el email de quien escribe. No guarda nada. Necesita en `dl-auditoria-config.php`: `smtp_usuario` (p. ej. `digital-lab@dl-dev.com`) y `smtp_password`; opcionales `smtp_host` (`smtp.hostinger.com`), `smtp_puerto` (465) y `contacto_para` (uno o varios buzones de destino, p. ej. `['digital-lab@dl-dev.com', 'otro@gmail.com']`; por defecto, `smtp_usuario`).
 - **Textos legales:** completa los datos marcados como `[COMPLETAR]` en `aviso-legal.html` y `privacidad.html` (titular, CUIT, domicilio, email, jurisdicción, proveedor de correo).
 - **Panel «Tu visita en datos»:** se calcula en el navegador del visitante y no envía datos a ningún sitio.
   La ubicación es aproximada (zona horaria e idioma); para ciudad exacta por IP hace falta un servicio externo.
@@ -57,6 +58,7 @@ img/     (6 .webp)
 js/      (4 .js)
 auditoria/  (completa, con sus 3 archivos .htaccess; ver «Auditoría web»)
 login/      (completa; ver «Acceso al panel»)
+contacto/   (enviar.php; ver «Formulario de contacto»)
 ```
 
 No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
