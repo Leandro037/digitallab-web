@@ -12,7 +12,10 @@ require __DIR__ . '/lib.php';
 try {
     $in = read_json_body();
     if (!empty($in['web'])) fail('error');                       // campo trampa relleno: robot
-    rate_limit('revisar', (int) cfg('limite_hora', 6), 3600);
+    rate_limit('revisar', (int) cfg('limite_hora', 6), 3600);   // también cuenta los códigos fallidos
+    // Código de acceso: sin él configurado no se audita nada (protege el saldo de la IA)
+    $codigo = (string) cfg('codigo_acceso', '');
+    if ($codigo === '' || !hash_equals($codigo, trim((string) ($in['codigo'] ?? '')))) fail('codigo', 403);
     cleanup();
 
     $url = normalize_url((string) ($in['url'] ?? ''));

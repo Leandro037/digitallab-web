@@ -18,6 +18,7 @@
 .au-form { position: relative; display: flex; gap: 10px; width: min(100%, 680px); margin-top: 12px; padding: 8px; border: 1px solid var(--line-2); border-radius: 999px; background: #0b1114; transition: border-color .3s, box-shadow .3s; }
 .au-form:focus-within { border-color: var(--green); box-shadow: 0 0 0 4px rgba(90, 212, 28, .14); }
 .au-form input[type="url"] { flex: 1; min-width: 0; padding: 0 18px; border: 0; background: transparent; color: var(--text); font: 400 17px/1 var(--display); outline: none; }
+.au-form #au-codigo { flex: none; width: 116px; padding: 0 16px; border: 0; border-left: 1px solid var(--line-2); background: transparent; color: var(--text); font: 400 17px/1 var(--display); letter-spacing: .08em; outline: none; }
 .au-form input::placeholder { color: var(--faint); }
 .au-form .btn { flex: none; }
 .au-form .btn[disabled] { opacity: .6; cursor: progress; }
@@ -265,6 +266,7 @@
   .au-hero { padding-top: 48px; }
   .au-form { flex-direction: column; border-radius: 20px; }
   .au-form input[type="url"] { padding: 14px 12px; }
+  .au-form #au-codigo { width: auto; padding: 14px 12px; border-left: 0; border-top: 1px solid var(--line-2); }
   .au-form .btn { justify-content: center; }
   .au-scores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .au-score--big { grid-column: 1 / -1; grid-row: auto; }

@@ -25,7 +25,7 @@
   <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="../fonts/jetbrains-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../styles.css?v=20261019a">
-  <link rel="stylesheet" href="auditoria.css?v=20261019b">
+  <link rel="stylesheet" href="auditoria.css?v=20261021a">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -61,6 +61,8 @@
       <form class="au-form" data-audit-form novalidate>
         <label class="au-sr" for="au-url">URL de tu web</label>
         <input id="au-url" name="url" type="url" inputmode="url" placeholder="https://tuweb.com" autocomplete="url" maxlength="300" required>
+        <label class="au-sr" for="au-codigo">Código de acceso</label>
+        <input id="au-codigo" name="codigo" type="password" inputmode="numeric" placeholder="Código" autocomplete="off" maxlength="20" required>
         <!-- Campo trampa contra robots: las personas no lo ven -->
         <div class="form__trap" aria-hidden="true"><label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label></div>
         <button class="btn btn--primary" type="submit" data-audit-btn>
@@ -210,6 +212,6 @@
   </footer>
 
   <script src="../js/hero-animation.js?v=20261016d"></script>
-  <script src="auditoria.js?v=20261019a"></script>
+  <script src="auditoria.js?v=20261021a"></script>
 </body>
 </html>

@@ -86,6 +86,7 @@ Con `?demo` al final de la dirección se ve una simulación con la auditoría de
 3. `google_psi_key`: en console.cloud.google.com, activa «PageSpeed Insights API», crea una clave y restríngela a sitios web `https://dl-dev.com/*` (el navegador la usa directamente, por eso debe estar restringida).
 4. **Agentes:** en el organigrama, «Exportar la configuración para la web» descarga un JSON con la instrucción, el modelo y el esfuerzo de cada agente. Súbelo como `dl-auditoria-agentes.json` junto a `dl-auditoria-config.php` (fuera de `public_html`). Contiene información interna: **nunca lo subas a GitHub**. Cada vez que cambies un agente en el organigrama, exporta y reemplaza el archivo.
 5. Cambia `sal` por un texto largo y aleatorio.
+6. `codigo_acceso`: el código que hay que escribir junto a la URL para lanzar una auditoría. Lo comprueba el servidor; si está vacío, no se audita nada.
 
 **Protecciones:** solo audita webs públicas (rechaza IP privadas, `localhost`, puertos que no sean 80/443 y redirecciones hacia la red interna); 6 auditorías por hora por visitante, 20 llamadas a la IA por auditoría y 400 por día en total (ajustables en la configuración); el servidor decide qué datos recibe cada agente y en qué orden; campo trampa contra bots; solo acepta peticiones desde dl-dev.com. Los datos de cada auditoría se guardan en `auditoria/api/data/` (bloqueada desde internet) y se borran a las 24 h. Cada llamada a la IA deja su consumo de tokens en el registro de errores de PHP.
 

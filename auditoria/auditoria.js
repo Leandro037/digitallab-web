@@ -20,7 +20,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  const form = q('[data-audit-form]'), input = q('#au-url'), btn = q('[data-audit-btn]'), btnLabel = q('[data-btn-label]');
+  const form = q('[data-audit-form]'), input = q('#au-url'), codeInput = q('#au-codigo'), btn = q('[data-audit-btn]'), btnLabel = q('[data-btn-label]');
   const msg = q('[data-msg]'), agent = q('[data-agent]'), team = q('[data-team]'), steps = q('[data-steps]'), timer = q('[data-timer]');
   const caption = q('[data-caption]'), leadPill = q('[data-lead-pill]'), result = q('[data-result]');
   let busy = false, run = null, resumable = false;
@@ -150,6 +150,7 @@
     url_invalida: 'Esa dirección no parece válida. Prueba con algo como https://tuweb.com',
     no_publica: 'Solo podemos auditar webs públicas en internet.',
     inaccesible: 'No pudimos acceder a esa web. Revisa que la dirección sea correcta y que esté en línea.',
+    codigo: 'El código de acceso no es correcto.',
     limite: 'Has hecho varias auditorías seguidas. Espera un rato y vuelve a intentarlo.',
     sin_servicio: 'El servicio de auditoría no está disponible en este servidor. Pruébalo en dl-dev.com/auditoria.',
     expirada: 'Esta auditoría ya caducó. Vuelve a analizar la web.',
@@ -414,7 +415,7 @@
         say('El 15 · AI Auditor visita tu web y hace la revisión automática.');
         let r1;
         if (DEMO) { const demo = await loadDemo(); await sleep(1800); r1 = { id: 'demo', ...demo.data, psiKey: '' }; }
-        else r1 = await post('revisar.php', { url, web: form.elements.web.value });
+        else r1 = await post('revisar.php', { url, codigo: codeInput.value, web: form.elements.web.value });
         setStep('conexion', 'done');
 
         // 2. Google PageSpeed
@@ -451,6 +452,7 @@
       const canResume = run && e.agente && !['expirada', 'limite'].includes(e.message);
       showMsg(msg, errText(e).replace(/\.$/, who + '.') + (canResume ? ' Pulsa «Continuar» para seguir desde ahí: lo que ya está hecho no se repite.' : ''));
       say('');
+      if (e.message === 'codigo') { codeInput.value = ''; codeInput.focus(); }
       resumable = !!canResume;
       btnLabel.textContent = canResume ? 'Continuar' : 'Analizar mi web';
       if (!canResume) { run = null; steps.hidden = true; team.dataset.state = 'idle'; }
@@ -466,6 +468,7 @@
     if (form.elements.web.value) return;   // campo trampa relleno
     const url = normalizeUrl(input.value);
     if (!url) { showMsg(msg, ERRORS.url_invalida); input.focus(); return; }
+    if (!DEMO && !codeInput.value.trim()) { showMsg(msg, 'Escribe el código de acceso para analizar la web.'); codeInput.focus(); return; }
     // «Continuar» retoma la misma web; si cambió la dirección, empieza una auditoría nueva
     const resume = resumable && !!run && url === input.dataset.last;
     resumable = false;

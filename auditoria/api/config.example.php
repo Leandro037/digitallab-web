@@ -21,6 +21,9 @@ return [
     // o indica aquí su ruta. Cada agente usa su instrucción, su modelo y su esfuerzo.
     // 'agentes_archivo' => '/ruta/a/dl-auditoria-agentes.json',
 
+    // Código que hay que escribir para lanzar una auditoría (sin él no se audita nada)
+    'codigo_acceso' => '',
+
     // Dominios desde los que se aceptan peticiones
     'origenes' => ['https://dl-dev.com', 'https://www.dl-dev.com'],
 
