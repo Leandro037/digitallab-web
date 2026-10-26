@@ -123,3 +123,7 @@ Límite de 8 intentos cada 15 minutos por visitante. Ojo: si el organigrama es p
 - Sin cookies, sin analítica y sin conexiones a terceros (tipografías propias), salvo en la auditoría web: Google PageSpeed (velocidad) y Anthropic (redacción con IA), documentados en `privacidad.html#auditoria`. La IP del visitante no se guarda: solo un resumen cifrado con sal durante 24 h para los límites de uso.
 - El panel «Tu visita en datos» se calcula en el navegador; solo guarda el contador de visitas en el almacenamiento local (`dl-visitas`, `dl-sesion`), documentado en `cookies.html`.
 - Textos legales para la Ley 25.326 (incluida la leyenda obligatoria de la AAIP) y el RGPD para clientes de la UE.
+
+## Estadísticas y panel (`/panel/`)
+
+Medición propia sin cookies: `js/analitica.js` envía a `panel/r.php`; los datos van a una base SQLite en `panel/datos/` (bloqueada por `.htaccess`, fuera de git). El país sale de la base DB-IP Lite (`panel/datos/geo4.bin` y `geo6.bin`, se regeneran cada mes con `node herramientas/geo-dbip.mjs` desde dl-agentes y se publican con `publicar-web.mjs`). El panel (`panel/index.html`) pide sesión: se abre al entrar en `/login/` con el email y la contraseña de `dl-auditoria-config.php`. Zona horaria y plazo de conservación: claves opcionales `panel_zona` y `panel_dias` de esa configuración.

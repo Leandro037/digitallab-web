@@ -432,6 +432,7 @@
       await pipeline(run);
 
       // 4. Resultado
+      if (window.dlTrack) window.dlTrack(DEMO ? 'auditoría: ejemplo completado' : 'auditoría: completada');
       seat(LEAD.n, 'ok', run.aprobado ? 'Informe listo' : 'Informe retenido');
       say(run.aprobado ? 'Informe aprobado por el agente de calidad. Ya puedes descargarlo.' : 'El agente de calidad pidió una revisión humana del informe.');
       renderResult(run);
@@ -489,6 +490,7 @@
   }
   const pdfBtn = q('[data-pdf-btn]'), pdfLabel = q('[data-pdf-label]'), pdfNote = q('[data-pdf-note]');
   pdfBtn.addEventListener('click', async () => {
+    if (window.dlTrack) window.dlTrack('auditoría: PDF descargado');
     if (!run || !run.aprobado) return;
     pdfBtn.disabled = true;
     pdfLabel.textContent = 'Preparando el PDF…';

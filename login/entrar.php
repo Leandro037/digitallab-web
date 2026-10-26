@@ -2,15 +2,15 @@
 /*
  * Digital Lab · acceso al panel de administración
  * Recibe {email, password}. Si coinciden con los de la configuración (la contraseña guardada
- * como hash, nunca en claro), devuelve la dirección del panel, que tampoco está en el código público.
+ * como hash, nunca en claro), abre la sesión del panel de estadísticas (/panel/).
  * Configuración (en dl-auditoria-config.php, fuera de public_html y de Git):
  *   'admin_email'         => 'tu@email.com',
  *   'admin_password_hash' => '…',   // php -r "echo password_hash('LA_CONTRASEÑA', PASSWORD_DEFAULT);"
- *   'admin_url'           => 'https://claude.ai/artifact/…',
  */
 declare(strict_types=1);
 define('DL_AUDIT', 1);
-require dirname(__DIR__) . '/auditoria/api/lib.php';
+define('DL_PANEL', 1);
+require dirname(__DIR__) . '/panel/lib.php';
 
 try {
     $in = read_json_body();
@@ -19,8 +19,7 @@ try {
 
     $email = (string) cfg('admin_email', '');
     $hash = (string) cfg('admin_password_hash', '');
-    $url = (string) cfg('admin_url', '');
-    if ($email === '' || $hash === '' || !str_starts_with($url, 'https://')) fail('sin_servicio', 503);
+    if ($email === '' || $hash === '') fail('sin_servicio', 503);
 
     $okEmail = hash_equals(strtolower($email), strtolower(trim((string) ($in['email'] ?? ''))));
     $okPass = password_verify((string) ($in['password'] ?? ''), $hash);
@@ -28,7 +27,12 @@ try {
         sleep(1);                                               // frena los intentos a ciegas
         fail('credenciales', 401);
     }
-    json_out(['ok' => true, 'url' => $url]);
+    // Sesión del panel de estadísticas (cookie de sesión, solo https, no legible por scripts)
+    panel_sesion_iniciar();
+    session_regenerate_id(true);
+    $_SESSION = ['admin' => 1, 't' => time()];
+    session_write_close();
+    json_out(['ok' => true, 'url' => '/panel/']);
 } catch (AuditError $e) {
     fail($e->codigo, $e->http);
 } catch (Throwable $e) {

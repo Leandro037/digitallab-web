@@ -900,6 +900,7 @@
         try { body = await r.json(); } catch (err) { /* respuesta no JSON (p. ej. sin PHP) */ }
         if (!r.ok || !body || !body.ok) throw new Error((body && body.error) || 'error');
         const email = el.email.value.trim();
+        if (window.dlForm) window.dlForm('contacto: ' + (el.servicio.value || 'sin servicio'));
         form.reset();
         note.textContent = `¡Gracias! Recibimos tu mensaje y te responderemos a ${email}.`;
       } catch (err) {

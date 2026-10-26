@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /panel/
+Disallow: /login/
 
 Sitemap: https://dl-dev.com/sitemap.xml

@@ -3,3 +3,7 @@ auditoria/api/config.php
 auditoria/api/data/*
 !auditoria/api/data/.htaccess
 auditoria/api/agentes.json
+
+# Estadísticas: base de datos, sal y sesiones del panel nunca al repositorio
+panel/datos/*
+!panel/datos/.htaccess

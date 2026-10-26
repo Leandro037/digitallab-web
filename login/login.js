@@ -33,7 +33,7 @@
       let body = null;
       try { body = await r.json(); } catch (err) { /* respuesta no JSON: sin PHP */ }
       if (!body) { show(r.status === 404 || r.status === 405 ? 'sin_servicio' : 'error'); return; }
-      if (!body.ok || !/^https:\/\//.test(body.url || '')) { show(body.error); return; }
+      if (!body.ok || !/^(\/panel\/|https:\/\/)/.test(body.url || '')) { show(body.error); return; }
       form.elements.password.value = '';
       location.assign(body.url);
     } catch (err) {
