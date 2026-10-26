@@ -25,7 +25,7 @@
 
 .st-tag { position: relative; z-index: 3; display: inline-flex; align-items: center; gap: 7px; margin: 0 0 -4px; padding: 6px 11px; border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); border-radius: 8px; background: rgba(6, 12, 15, .9); color: var(--text); font: 600 13px/1 var(--display); white-space: nowrap; }
 .st-tag b { color: var(--c); font: 700 12px/1 var(--mono); text-shadow: 0 0 10px color-mix(in srgb, var(--c) 60%, transparent); }
-.st-tag--ceo { --c: #8b5cff; padding: 7px 14px; font-size: 15px; letter-spacing: .04em; }
+.st-tag--ceo { --c: #4aa5ff; padding: 7px 14px; font-size: 15px; letter-spacing: .04em; }
 
 /* ---------- El CEO: el mismo agente de la auditoría, trabajando sin parar ---------- */
 .st-ceo-wrap { position: relative; z-index: 2; width: clamp(190px, 19vw, 270px); }
@@ -33,15 +33,15 @@
 .ag-body { position: relative; animation: ag-breathe 5s ease-in-out infinite; }
 .ag-img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
 .ag-fx { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.ag-aura { position: absolute; left: 50%; top: 55%; width: 92%; height: 78%; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(150, 60, 255, .5), rgba(120, 40, 255, .14) 62%, transparent); filter: blur(22px); opacity: .45; animation: ag-aura 5s ease-in-out infinite; }
+.ag-aura { position: absolute; left: 50%; top: 55%; width: 92%; height: 78%; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(closest-side, rgba(60, 140, 255, .5), rgba(40, 100, 255, .14) 62%, transparent); filter: blur(22px); opacity: .45; animation: ag-aura 5s ease-in-out infinite; }
 .ag-eye { fill: none; stroke: #fbe4ff; stroke-width: 15; stroke-linecap: round; animation: ag-blink 6s ease-in-out infinite; }
 .ag-eyes, .ag-eye, .ag-scan, .ag-orbit, .ag-halo, .ag-bits rect { transform-box: fill-box; transform-origin: center; }
-.ag-code rect { fill: #cf8bff; }
+.ag-code rect { fill: #8cc8ff; }
 .ag-code { opacity: 0; }
 .ag-scan { opacity: 0; }
 .ag-screen { fill: #c35cff; opacity: 0; mix-blend-mode: screen; }
 .ag-halo { opacity: .25; animation: ag-glow 4s ease-in-out infinite; }
-.ag-orbit { fill: none; stroke: #f1b6ff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 20 30; opacity: 0; }
+.ag-orbit { fill: none; stroke: #bcdcff; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 20 30; opacity: 0; }
 .ag-orbit--in { stroke-width: 4; stroke-dasharray: 8 20; }
 .ag-bits rect { fill: #eab0ff; opacity: 0; }
 .st-ceo[data-state="working"] .ag-body { animation-duration: 2.8s; }
