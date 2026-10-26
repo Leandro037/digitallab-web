@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * Digital Lab · Hero «Convergencia de datos»
  * Animación en <canvas> sin dependencias.
  *
@@ -119,7 +119,10 @@
     });
 
     let W = 1, H = 1;
-    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // En pantallas pequeñas el lienzo es enorme para el procesador de un móvil: se dibuja a menos resolución (el neón se ve igual)
+    // En móvil la animación va a 30 fotogramas por segundo: la mitad de trabajo para el procesador y no se nota en un fondo
+    const cap30 = window.matchMedia('(max-width: 860px)').matches;
+    let dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia('(max-width: 860px)').matches ? 1 : 2);
     let R = { x: 0, y: 0, w: 1, h: 1 };          // zona de la composición (px CSS)
     let box = { x: 0, y: 0, w: 1, h: 1 };        // zona del resplandor (px de dispositivo)
 
@@ -142,20 +145,17 @@
     /* ------------------------------------------------------------------ */
 
     function measure() {
+      // Primero se leen todas las medidas y después se escribe el tamaño del canvas: así el navegador calcula la maqueta una sola vez
       const rc = canvas.getBoundingClientRect();
+      const a = o.anchor ? o.anchor.getBoundingClientRect() : null;
+      const b = o.band && o.band.getBoundingClientRect();
+      const l = o.lineStart && o.lineStart.getBoundingClientRect();
       W = Math.max(1, rc.width);
       H = Math.max(1, rc.height);
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
-      if (o.anchor) {
-        const a = o.anchor.getBoundingClientRect();
-        R = { x: a.left - rc.left, y: a.top - rc.top, w: Math.max(1, a.width), h: Math.max(1, a.height) };
-      } else {
-        R = { x: 0, y: 0, w: W, h: H };
-      }
-      const b = o.band && o.band.getBoundingClientRect();
+      R = a ? { x: a.left - rc.left, y: a.top - rc.top, w: Math.max(1, a.width), h: Math.max(1, a.height) } : { x: 0, y: 0, w: W, h: H };
       bandR = b && b.height > 0 ? { y: b.top - rc.top, h: b.height } : null;
-      const l = o.lineStart && o.lineStart.getBoundingClientRect();
       lineX = l && l.width > 0 ? l.left - rc.left : null;
     }
 
@@ -703,9 +703,10 @@
 
     function frame(now) {
       raf = requestAnimationFrame(frame);
+      if (cap30 && now - last < 28) return;
       const raw = (now - last) / 1000;
       last = now;
-      if (T > 3 && raw < 0.25) {
+      if (!cap30 && T > 3 && raw < 0.25) {
         perf.sum += raw;
         if (++perf.n >= 120) {
           degrade(perf.sum / perf.n);
@@ -764,11 +765,14 @@
     ro.observe(canvas);
     if (o.anchor) ro.observe(o.anchor);
 
+    // El lienzo cubre todo el hero, pero lo que se dibuja está en la zona del ancla: la animación solo corre cuando esa zona
+    // está (o va a estar) en pantalla. En móvil queda bajo el título y no gasta procesador hasta que se acerca.
     const io = new IntersectionObserver((entries) => {
-      inView = entries[entries.length - 1].isIntersecting;
+      const e = entries[entries.length - 1];
+      inView = e.isIntersecting && e.intersectionRatio >= 0.2;   // con menos de un 20 % a la vista todavía no merece la pena animar
       sync();
-    });
-    io.observe(canvas);
+    }, { threshold: [0, 0.2, 0.5, 1] });
+    io.observe(o.anchor || canvas);
 
     window.addEventListener('pointermove', onMove, { passive: true });
     document.addEventListener('mouseout', onOut);

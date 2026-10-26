@@ -229,6 +229,25 @@
     return d;
   }
 
+  // Qué altura de la página alcanza cada hilo a cada longitud. Las curvas son largas y medirlas de golpe bloqueaba el hilo
+  // principal más de un segundo en móviles lentos: se hace en trozos de ~6 ms y, hasta terminar, se conserva el muestreo anterior.
+  const PASO_HILO = 16;
+  // Cada trozo espera a que el navegador esté libre (así no compite con la animación del título ni con el scroll)
+  const cuandoLibre = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 1200 }) : setTimeout(fn, 30));
+  function muestrearHilo(ln) {
+    const trabajo = (ln.trabajo = (ln.trabajo || 0) + 1), total = ln.total, L = [], Y = [];
+    let l = 0, maxY = -Infinity;
+    (function trozo() {
+      if (ln.trabajo !== trabajo) return;                 // llegó un muestreo más nuevo (cambio de tamaño)
+      const fin = performance.now() + 6;
+      while (l <= total && performance.now() < fin) {
+        maxY = Math.max(maxY, ln.core.getPointAtLength(l).y);
+        L.push(l); Y.push(maxY); l += PASO_HILO;
+      }
+      if (l <= total) cuandoLibre(trozo); else { ln.L = L; ln.Y = Y; }
+    })();
+  }
+
   function layoutFlow() {
     const W = document.documentElement.clientWidth;
     svg.setAttribute('width', W);
@@ -283,12 +302,7 @@
       for (const p of [ln.glow, ln.core]) p.setAttribute('d', d);
       for (const c of ln.comets) for (const l of c.layers) l.el.setAttribute('d', d);
       ln.total = ln.core.getTotalLength();
-      ln.L = []; ln.Y = [];
-      let maxY = -Infinity;
-      for (let l = 0; l <= ln.total; l += 10) {
-        maxY = Math.max(maxY, ln.core.getPointAtLength(l).y);
-        ln.L.push(l); ln.Y.push(maxY);
-      }
+      muestrearHilo(ln);
       for (const p of [ln.glow, ln.core]) p.style.strokeDasharray = `${ln.total} ${ln.total}`;
       for (const c of ln.comets) for (const l of c.layers) {
         l.el.style.strokeDasharray = `0 ${ln.total + 1000}`;
@@ -313,12 +327,17 @@
     return ln.L[hi];
   }
   function yAtLength(ln, l) {
-    const i = clamp(Math.round(l / 10), 0, ln.Y.length - 1);
+    const i = clamp(Math.round(l / PASO_HILO), 0, ln.Y.length - 1);
     return ln.Y[i] ?? 0;
   }
 
+  // scrollY e innerHeight se guardan al hacer scroll o cambiar de tamaño: leerlos dentro del fotograma obligaba al navegador a recalcular la maqueta en cada uno
+  let SY = scrollY, IH = innerHeight;
+  addEventListener('scroll', () => { SY = scrollY; }, { passive: true });
+  addEventListener('resize', () => { SY = scrollY; IH = innerHeight; }, { passive: true });
+
   function updateFlow(dt, t) {
-    const tip = scrollY + innerHeight * 0.75;
+    const tip = SY + IH * 0.75;
     for (const ln of lines) {
       if (!ln.total) continue;
       const target = reduce ? ln.total : lengthAtY(ln, tip);
@@ -329,11 +348,11 @@
       // Destellos: nacen justo encima de la pantalla y siempre avanzan hacia la punta del hilo,
       // aunque el hilo se acorte o alargue con el scroll. Se reciclan al salir por abajo o apagarse.
       const show = !reduce && ln.drawn > 80;
-      const viewEnd = lengthAtY(ln, scrollY + innerHeight + 200);
+      const viewEnd = lengthAtY(ln, SY + IH + 200);
       ln.spawnIn -= dt;
       if (show && ln.spawnIn <= 0) {
         ln.spawnIn = 1.3 + Math.random() * 1.6;
-        const start = lengthAtY(ln, scrollY - 60);
+        const start = lengthAtY(ln, SY - 60);
         const free = ln.comets.find((c) => !c.active);
         const crowded = ln.comets.some((c) => c.active && Math.abs(c.pos - start) < 260);
         if (free && !crowded && start < ln.drawn - 60) { free.active = true; free.pos = start; }
@@ -610,7 +629,7 @@
   function sizeMinis() {
     for (const m of minis) {
       const r = m.cv.getBoundingClientRect();
-      m.dpr = Math.min(2, window.devicePixelRatio || 1);
+      m.dpr = Math.min(window.matchMedia('(max-width: 860px)').matches ? 1 : 2, window.devicePixelRatio || 1);
       m.w = r.width; m.h = r.height;
       m.cv.width = Math.max(1, Math.round(r.width * m.dpr));
       m.cv.height = Math.max(1, Math.round(r.height * m.dpr));
@@ -916,20 +935,28 @@
   /* Bucle y maquetación                                                 */
   /* ------------------------------------------------------------------ */
 
-  let layoutRaf = 0;
-  function relayout() {
-    cancelAnimationFrame(layoutRaf);
-    layoutRaf = requestAnimationFrame(() => {
-      sizeMinis();
-      layoutFlow();
-      if (reduce) { updateFlow(1, 0); minis.forEach((m) => drawMini(m, 3.5)); }
-    });
+  // La maquetación de los hilos y de las miniaturas mide muchos elementos: se recalcula cuando la página se «asienta»
+  // (carga, fuentes, cambio real de tamaño), una sola vez y no en cada pequeño cambio mientras llegan imágenes y fuentes.
+  let layoutRaf = 0, layoutTimer = 0, medidaW = 0, medidaH = 0;
+  function relayout(espera = 150) {
+    clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(() => {
+      cancelAnimationFrame(layoutRaf);
+      layoutRaf = requestAnimationFrame(() => {
+        sizeMinis();
+        layoutFlow();
+        if (reduce) { updateFlow(1, 0); minis.forEach((m) => drawMini(m, 3.5)); }
+      });
+    }, espera);
   }
   sizeMinis();
-  layoutFlow();
-  new ResizeObserver(relayout).observe(document.body);
-  addEventListener('load', relayout);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+  new ResizeObserver((es) => {
+    const r = es[es.length - 1].contentRect, w = Math.round(r.width), h = Math.round(r.height);
+    if (w === medidaW && Math.abs(h - medidaH) < 4) return;     // el mismo tamaño: nada que recalcular
+    medidaW = w; medidaH = h; relayout();
+  }).observe(document.body);
+  addEventListener('load', () => relayout());
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => relayout());
 
   const T0 = performance.now();
   let lastNow = T0;
@@ -937,8 +964,10 @@
     updateFlow(1, 0);
     minis.forEach((m) => drawMini(m, 3.5));
   }
+  const cap30 = window.matchMedia('(max-width: 860px)').matches;   // móvil: 30 fotogramas por segundo
   function frame(now) {
     requestAnimationFrame(frame);
+    if (cap30 && now - lastNow < 28) return;
     const dt = Math.min(0.05, (now - lastNow) / 1000);
     lastNow = now;
     const t = (now - T0) / 1000;

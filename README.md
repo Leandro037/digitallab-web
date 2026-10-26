@@ -19,6 +19,7 @@ js/text-build.js      Títulos que se construyen con cuadraditos («lluvia de da
 js/landing.js         Hilos por toda la página, servicios, carrusel, panel de la visita, WhatsApp y formulario
 img/                  Imágenes del carrusel (WebP)
 auditoria/            Auditoría web gratuita con IA (página + servidor PHP en auditoria/api/)
+studio/               Página de Digital Lab Studio: el CEO y su equipo de agentes animados (usa auditoria/agente.webp y js/hero-animation.js)
 login/                Acceso al panel de administración (página + entrar.php)
 contacto/enviar.php   Envía por correo los mensajes del formulario de contacto
 ```
@@ -57,6 +58,7 @@ fonts/   (2 .woff2 + OFL.txt)
 img/     (6 .webp)
 js/      (4 .js)
 auditoria/  (completa, con sus 3 archivos .htaccess; ver «Auditoría web»)
+studio/     (index.html, studio.css, studio.js, hilos.js y agentes/ con los 35 avatares del manual de estilo)
 login/      (completa; ver «Acceso al panel»)
 contacto/   (enviar.php; ver «Formulario de contacto»)
 ```

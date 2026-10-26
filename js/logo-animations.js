@@ -189,7 +189,7 @@
       S.eyeGlowW = Math.max(base.eyeGlowW, 1.2 * k);
     }
 
-    sc.maxDpr = 2;
+    sc.maxDpr = window.matchMedia('(max-width: 860px)').matches ? 1 : 2;   // en móvil basta 1x: el logo es pequeño y así el procesador respira
     sc.resize = function () {
       const r = canvas.getBoundingClientRect();
       sc.W = Math.max(1, r.width);
@@ -486,7 +486,7 @@
       });
 
       // B · Resplandor
-      bloom();
+      if (!(window.matchMedia('(max-width: 860px)').matches)) bloom();   // el resplandor extra solo en pantallas anchas
       sc.unit();
 
       // C · Ojo nítido encima del resplandor
@@ -898,8 +898,10 @@
       }
     }
 
+    const cap30 = window.matchMedia('(max-width: 860px)').matches;   // móvil: 30 fotogramas por segundo
     function frame(now) {
       raf = requestAnimationFrame(frame);
+      if (cap30 && now - last < 28) return;
       const raw = (now - last) / 1000;
       last = now;
       // Si el equipo no llega a ~35 fps, se dibuja a resolución normal en lugar de retina

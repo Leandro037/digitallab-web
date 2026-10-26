@@ -169,7 +169,7 @@
     for (const c of st.cells) {
       const lt = t - c.delay;
       if (lt < 0) continue;
-      const f = Math.min(1, lt / FALL);
+      const f = Math.min(1, lt / st.fall);
       const a = Math.min(1, f * 3) * (0.6 + 0.4 * c.cov);
       if (f < 1) {
         // gota con estela, como las de la matriz
@@ -178,8 +178,8 @@
         square(st, c.x, y - st.pitch * 2, c.mat, a * 0.15);
         square(st, c.x, y, mix(c.mat, WHITE, 0.35), a);
       } else {
-        const k = Math.min(1, (lt - FALL) / SETTLE);
-        const flash = Math.max(0, 1 - (lt - FALL) / 140);
+        const k = Math.min(1, (lt - st.fall) / st.settle);
+        const flash = Math.max(0, 1 - (lt - st.fall) / (140 * st.k));
         const rgb = mix(mix(c.mat, c.rgb, easeOut(k)), WHITE, flash * 0.7);
         square(st, c.x, c.y, rgb, a);
         glow(st, c.x, c.y, rgb, flash);
@@ -214,15 +214,16 @@
     if (reduce || !el || !el.parentElement) return;
     const fs = parseFloat(getComputedStyle(el).fontSize) || 48;
     const pitch = clamp(Math.round(fs / 12), 3, 7);
-    const st = { el, pitch, size: pitch * 0.72, inset: pitch * 0.14, raf: 0 };
+    const k = el.hasAttribute('data-build-fast') ? 0.55 : 1;   // el título principal se construye en poco más de un segundo
+    const st = { el, pitch, size: pitch * 0.72, inset: pitch * 0.14, raf: 0, k, fall: FALL * k, settle: SETTLE * k };
     const mask = rasterize(el);
     st.cells = grid(mask, pitch);
     if (!st.cells.length) return;
     for (const c of st.cells) {
-      c.delay = (c.y / mask.H) * SPREAD + c.rnd * 260;   // de arriba abajo, con algo de desorden
+      c.delay = ((c.y / mask.H) * SPREAD + c.rnd * 260) * st.k;   // de arriba abajo, con algo de desorden
       c.drop = 50 + Math.random() * 120;
     }
-    st.T = Math.max(...st.cells.map((c) => c.delay)) + FALL + SETTLE;
+    st.T = Math.max(...st.cells.map((c) => c.delay)) + st.fall + st.settle;
 
     // Capa de dibujo dentro del contenedor, sin salirse de la página por los lados.
     // Si el contenedor no está posicionado, se posiciona solo mientras dura la animación y sin
@@ -237,7 +238,7 @@
     const box = el.getBoundingClientRect(), pr = parent.getBoundingClientRect();
     const docW = document.documentElement.clientWidth;
     const pad = { ...PAD, l: Math.max(0, Math.min(PAD.l, box.left)), r: Math.max(0, Math.min(PAD.r, docW - box.right)) };
-    const dpr = Math.min(2, global.devicePixelRatio || 1);
+    const dpr = Math.min(global.matchMedia && global.matchMedia('(max-width: 860px)').matches ? 1 : 2, global.devicePixelRatio || 1);
     const w = box.width + pad.l + pad.r, h = box.height + pad.t + pad.b;
     const cv = document.createElement('canvas');
     cv.className = 'tb-layer';
