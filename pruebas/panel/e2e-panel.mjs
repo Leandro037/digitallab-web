@@ -262,6 +262,17 @@ try {
   ok(csv2.includes(`"'=1+1"`) && csv2.includes(`"'+SUM(A1)"`) && csv2.includes(`"'-2+3"`) && csv2.includes(`"<script>window.__xss=3</script>\n=HYPERLINK(""http://evil.example"")"`), 'CSV: fórmulas con apóstrofo, comillas dobladas');
   fs.unlinkSync(xss.f); fs.unlinkSync(formula.f);
 
+  // H3 (tarea 51): campañas llamadas como propiedades de Object.prototype siguen en el filtro Origen
+  const proto = escribirLead({ d: 0, h: '23:57', nombre: 'Proto Ficticio', email: 'p@proto.example', empresa: 'Proto', pais: 'Chile', tamano_equipo: '1', usa_claude_code: 'si', cta_origen: 'final', utm_source: 'x', utm_campaign: '__proto__' });
+  const ctor = escribirLead({ d: 0, h: '23:56', nombre: 'Ctor Ficticio', email: 'c@ctor.example', empresa: 'Ctor', pais: 'Chile', tamano_equipo: '1', usa_claude_code: 'si', cta_origen: 'final', utm_source: 'x', utm_campaign: 'constructor' });
+  await pag.reload();
+  await pag.waitForSelector(`#filas a.fila[data-id="${proto.id}"]`);
+  ok(await pag.locator('#fOrigenSel option[value="__proto__"]').count() === 1 && await pag.locator('#fOrigenSel option[value="constructor"]').count() === 1, 'H3: «__proto__» y «constructor» aparecen en el filtro Origen');
+  await pag.selectOption('#fOrigenSel', '__proto__');
+  ok(await pag.locator('#filas a.fila').count() === 1 && (await pag.textContent('#filas a.fila >> nth=0 >> .f-persona strong')) === 'Proto Ficticio', 'H3: filtrar por «__proto__» muestra su lead');
+  await pag.selectOption('#fOrigenSel', '');
+  fs.unlinkSync(proto.f); fs.unlinkSync(ctor.f);
+
   // Menú Estadísticas / Leads
   await pag.goto(ORIGEN + '/panel/');
   ok((await pag.getAttribute('.nav a[aria-current=page]', 'href')) === '/panel/', 'el panel de estadísticas tiene el menú, con «Estadísticas» activo');
