@@ -7,10 +7,13 @@
  * La recoge el ordenador de Digital Lab (pendientes.php / confirmar.php, tarea 14).
  *
  * Defensas (docs/stack.md §1): solo POST con JSON y desde nuestro origen; 5 envíos por hora por
- * visitante y 100 al día en total; campo trampa «web»; tiempo mínimo «t» (3 s) y máximo (2 h);
- * consentimiento «consent_respuesta» === true; listas cerradas; longitudes limitadas.
- * La IP no se guarda: para el límite por hora se usa un código HMAC con sal secreta que cambia cada
- * día y se borra como mucho una hora después del último intento (y siempre antes de 24 h).
+ * visitante (en IPv6, por prefijo /64), 10 guardados por minuto y 100 al día en total; campo trampa
+ * «web»; tiempo mínimo «t» (3 s) y máximo (2 h); consentimiento «consent_respuesta» === true; listas
+ * cerradas; longitudes limitadas; sin caracteres invisibles ni «<>» en nombre y empresa; correo sin
+ * comillas. Todo texto del lead sigue siendo DATO NO CONFIABLE para quien lo lea después.
+ * La IP no se guarda: para el límite por hora se usa un código HMAC con una sal secreta FIJA a la que
+ * se le mezcla el día (UTC), así que la misma IP da otro código cada día. El código se borra como
+ * mucho una hora después del último intento (y siempre antes de 24 h).
  *
  * Configuración: /dl-leads/config.php (fuera de public_html y de Git). Ejemplo en
  * privado/dl-leads/config.example.php del repositorio. Sin configuración válida responde 503.
@@ -25,7 +28,7 @@
  *   409 {ok:false, error:'version'}                   versión del consentimiento desconocida (página antigua)
  *   413 {ok:false, error:'datos'}                     cuerpo demasiado grande
  *   415 {ok:false, error:'tipo'}                      no es application/json
- *   429 {ok:false, error:'limite'}                    5/hora por visitante o 100/día (con Retry-After)
+ *   429 {ok:false, error:'limite'}                    5/hora por visitante, 10/minuto o 100/día (con Retry-After)
  *   500 {ok:false, error:'error'}                     fallo al guardar
  *   503 {ok:false, error:'sin_servicio'}              falta configuración o la cola no es segura
  */
@@ -36,6 +39,8 @@ const DEMO_T_MIN = 3000;                    // ms: más rápido que esto es un r
 const DEMO_T_MAX = 7200000;                 // ms: 2 horas
 const DEMO_VENTANA = 3600;                  // s: ventana del límite por visitante
 const DEMO_CONSERVACION = 30 * 86400;       // s: la solicitud espera como máximo 30 días (privacidad)
+const DEMO_RITMO = 60;                      // s: ventana del tope global de guardados por minuto
+const DEMO_PURGA_CADA = 600;                // s: la purga corre como mucho una vez cada 10 minutos
 
 const DEMO_PAISES = ['Argentina', 'España', 'Chile', 'Colombia', 'México', 'Perú', 'Uruguay', 'Otro país'];
 const DEMO_TAMANOS = ['1', '2-10', '11-50', '51+'];
@@ -89,14 +94,17 @@ function demo_procesar(array $server, string $cuerpo, array $cfg, int $ahora): a
         error_log('Digital Lab demo: no se puede crear la carpeta de límites');
         return demo_error('sin_servicio', 503);
     }
-    demo_purgar($cola, $ahora);
 
-    // 3. Límite por visitante (cuenta todos los intentos, también los de robots)
-    $ip = demo_ip($server, $cfg);
+    // 3. Límite por visitante (cuenta todos los intentos, también los de robots).
+    //    En IPv6 cuenta el prefijo /64, no la dirección completa (demo_clave_ip).
+    $ip = demo_clave_ip(demo_ip($server, $cfg));
     $porHora = max(1, (int) ($cfg['limite_hora'] ?? 5));
     if (!demo_limite_visitante($limites, $ip, $sal, $porHora, $ahora)) {
         return demo_error('limite', 429, ['Retry-After' => (string) DEMO_VENTANA]);
     }
+
+    // Purga de lo caducado: después del límite (un 429 no hace trabajo) y como mucho cada 10 min
+    demo_purgar_si_toca($cola, $limites, $ahora);
 
     // 4. Cuerpo JSON
     if (strlen($cuerpo) > DEMO_MAX_CUERPO) return demo_error('datos', 413);
@@ -128,8 +136,9 @@ function demo_procesar(array $server, string $cuerpo, array $cfg, int $ahora): a
     [$lead, $errores] = demo_validar($in);
     if ($errores) return [400, ['ok' => false, 'error' => 'campos', 'campos' => $errores], []];
 
-    // 9. Tope diario y guardado
+    // 9. Topes globales (100 al día y 10 por minuto) y guardado
     $porDia = max(1, (int) ($cfg['limite_dia'] ?? 100));
+    $porMinuto = max(1, (int) ($cfg['limite_minuto'] ?? 10));
     $fecha = gmdate('Y-m-d\TH:i:s\Z', $ahora);
     $lead = ['formato' => 1, 'id' => '', 'recibido' => $fecha] + $lead + [
         'consent_respuesta' => true,
@@ -137,11 +146,12 @@ function demo_procesar(array $server, string $cuerpo, array $cfg, int $ahora): a
         'consent_version' => $version,
         'consent_fecha' => $fecha,
     ];
-    $r = demo_guardar_con_tope($cola, $limites, $lead, $porDia, $ahora);
+    $r = demo_guardar_con_tope($cola, $limites, $lead, $porDia, $ahora, $porMinuto);
     if ($r === 'limite') {
         $medianoche = intdiv($ahora, 86400) * 86400 + 86400;
         return demo_error('limite', 429, ['Retry-After' => (string) max(60, $medianoche - $ahora)]);
     }
+    if ($r === 'ritmo') return demo_error('limite', 429, ['Retry-After' => (string) DEMO_RITMO]);
     if ($r === 'error') return demo_error('error', 500);
     return [200, ['ok' => true], []];
 }
@@ -160,16 +170,18 @@ function demo_validar(array $in): array
 {
     $e = [];
 
-    $nombre = demo_linea($in['nombre'] ?? null);
+    // Nombre y empresa los leerá un agente y saldrán en Telegram: sin «<>» (no hacen falta en un nombre)
+    $nombre = demo_sin_angulos(demo_linea($in['nombre'] ?? null));
     if ($nombre === null || $nombre === '') $e['nombre'] = 'falta';
     elseif (mb_strlen($nombre) > 100) $e['nombre'] = 'largo';
 
+    // FILTER_VALIDATE_EMAIL admite una parte local entre comillas («"a<b>"@x.com»): aquí no
     $email = demo_linea($in['email'] ?? null);
     if ($email === null || $email === '') $e['email'] = 'falta';
     elseif (strlen($email) > 254) $e['email'] = 'largo';
-    elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $e['email'] = 'invalido';
+    elseif (strpbrk($email, "\"<>\\") !== false || !filter_var($email, FILTER_VALIDATE_EMAIL)) $e['email'] = 'invalido';
 
-    $empresa = demo_linea($in['empresa'] ?? null);
+    $empresa = demo_sin_angulos(demo_linea($in['empresa'] ?? null));
     if ($empresa === null || $empresa === '') $e['empresa'] = 'falta';
     elseif (mb_strlen($empresa) > 120) $e['empresa'] = 'largo';
 
@@ -207,24 +219,36 @@ function demo_utm(mixed $v): string
     return is_string($v) && preg_match('/^[A-Za-z0-9_-]{1,60}$/D', $v) ? $v : '';
 }
 
-// Caracteres invisibles que pueden disfrazar un texto (cambio de dirección, ancho cero, BOM)
-const DEMO_INVISIBLES = '/[\x{00AD}\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}-\x{2064}\x{2066}-\x{2069}\x{FEFF}]/u';
+// Caracteres invisibles que pueden disfrazar un texto o esconder instrucciones que un LLM sí lee:
+// formato (\p{Cf}: cambio de dirección, ancho cero, BOM, U+061C, U+180E, U+206A-206F y las etiquetas
+// Unicode U+E0001 y U+E0020-E007F), uso privado (\p{Co}), sin asignar (\p{Cn}, incluye U+E0000 y el
+// resto del bloque de etiquetas), U+034F, rellenos Hangul y selectores de variación. Regla del 25 (H4).
+const DEMO_INVISIBLES = '/[\p{Cf}\p{Co}\p{Cn}\x{034F}\x{115F}\x{1160}\x{3164}\x{FFA0}\x{FE00}-\x{FE0F}\x{E0100}-\x{E01EF}]/u';
 
-// Una línea: sin caracteres de control ni invisibles, espacios seguidos reducidos a uno. null si no es texto.
+// Una línea: sin caracteres de control ni invisibles, espacios seguidos reducidos a uno. null si no es texto
+// (o si no es UTF-8 válido: preg_replace con /u devuelve null y se trata como texto vacío).
 function demo_linea(mixed $v): ?string
 {
     if (!is_string($v)) return null;
     $v = preg_replace(DEMO_INVISIBLES, '', $v) ?? '';
-    $v = preg_replace('/[\x00-\x1F\x7F\x{80}-\x{9F}]/u', ' ', $v) ?? '';
+    $v = preg_replace('/[\x00-\x1F\x7F\x{80}-\x{9F}\x{2028}\x{2029}]/u', ' ', $v) ?? '';
     $v = preg_replace('/\s+/u', ' ', $v) ?? '';
     return trim($v);
 }
 
-// Texto libre: conserva los saltos de línea (como mucho una línea en blanco seguida)
+// Quita «<» y «>» de una línea ya limpia (null pasa tal cual)
+function demo_sin_angulos(?string $v): ?string
+{
+    if ($v === null) return null;
+    return trim(preg_replace('/ {2,}/', ' ', str_replace(['<', '>'], '', $v)) ?? '');
+}
+
+// Texto libre: conserva los saltos de línea (como mucho una línea en blanco seguida).
+// U+2028 y U+2029 (separadores de línea y párrafo) cuentan como salto de línea.
 function demo_texto(mixed $v): ?string
 {
     if (!is_string($v)) return null;
-    $v = str_replace(["\r\n", "\r"], "\n", $v);
+    $v = str_replace(["\r\n", "\r", "\u{2028}", "\u{2029}"], "\n", $v);
     $v = preg_replace(DEMO_INVISIBLES, '', $v) ?? '';
     $v = preg_replace('/[\x00-\x09\x0B-\x1F\x7F\x{80}-\x{9F}]/u', ' ', $v) ?? '';
     $v = preg_replace('/[ \t]+\n/u', "\n", $v) ?? '';
@@ -259,15 +283,60 @@ function demo_cola_segura(array $cfg, array $server): ?string
     return $real;
 }
 
+// IP del visitante. Por defecto, REMOTE_ADDR. Si hay un CDN delante (config «ip_cabecera»), la cabecera
+// solo se cree cuando la petición llega desde una red del CDN («ip_proxies»): si no, cualquiera podría
+// inventarse la cabecera y saltarse el límite. Si la cabecera es una lista («a, b, c»), se toma el
+// ÚLTIMO valor válido: es el que añadió el CDN; los primeros los puede escribir el propio cliente.
 function demo_ip(array $server, array $cfg): string
 {
-    // Solo si el hosting pone un proxy delante (configurable); por defecto, REMOTE_ADDR
+    $remota = (string) ($server['REMOTE_ADDR'] ?? '0.0.0.0');
     $cab = (string) ($cfg['ip_cabecera'] ?? '');
-    if ($cab !== '' && filter_var($server[$cab] ?? '', FILTER_VALIDATE_IP)) return (string) $server[$cab];
-    return (string) ($server['REMOTE_ADDR'] ?? '0.0.0.0');
+    if ($cab === '' || !isset($server[$cab]) || !is_string($server[$cab])) return $remota;
+    $proxies = array_values(array_filter((array) ($cfg['ip_proxies'] ?? []), 'is_string'));
+    $desdeCdn = false;
+    foreach ($proxies as $red) {
+        if (demo_ip_en_red($remota, $red)) { $desdeCdn = true; break; }
+    }
+    if (!$desdeCdn) return $remota;
+    $valores = array_reverse(array_map('trim', explode(',', $server[$cab])));
+    foreach ($valores as $v) {
+        if (filter_var($v, FILTER_VALIDATE_IP)) return $v;
+    }
+    return $remota;
 }
 
-// 5 intentos por hora y visitante. La IP no se guarda: solo un HMAC con sal que cambia cada día (UTC).
+// ¿Está $ip dentro de $red («203.0.113.0/24», «2001:db8::/32» o una IP sola)?
+function demo_ip_en_red(string $ip, string $red): bool
+{
+    [$base, $bits] = array_pad(explode('/', trim($red), 2), 2, null);
+    $a = @inet_pton($ip);
+    $b = @inet_pton((string) $base);
+    if ($a === false || $b === false || strlen($a) !== strlen($b)) return false;
+    $total = strlen($a) * 8;
+    $bits = $bits === null ? $total : (preg_match('/^\d{1,3}$/D', $bits) ? (int) $bits : -1);
+    if ($bits < 0 || $bits > $total) return false;
+    $bytes = intdiv($bits, 8);
+    if (substr($a, 0, $bytes) !== substr($b, 0, $bytes)) return false;
+    $resto = $bits % 8;
+    if ($resto === 0) return true;
+    $mascara = (0xFF << (8 - $resto)) & 0xFF;
+    return (ord($a[$bytes]) & $mascara) === (ord($b[$bytes]) & $mascara);
+}
+
+// Lo que cuenta como «un visitante» para el límite: la IPv4 completa; en IPv6, el prefijo /64
+// (un proveedor suele dar a cada cliente un /64 entero, así que la dirección completa no frena nada).
+// Una IPv4 escrita como IPv6 (::ffff:a.b.c.d) cuenta como la IPv4.
+function demo_clave_ip(string $ip): string
+{
+    $bin = @inet_pton($ip);
+    if ($bin === false) return $ip;
+    if (strlen($bin) === 4) return (string) inet_ntop($bin);
+    if (str_starts_with($bin, str_repeat("\0", 10) . "\xFF\xFF")) return (string) inet_ntop(substr($bin, 12));
+    return (string) inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+}
+
+// 5 intentos por hora y visitante. La IP no se guarda: solo un HMAC con una sal secreta FIJA y el día
+// (UTC) mezclado en el texto, así que la misma IP da un código distinto cada día.
 function demo_limite_visitante(string $dir, string $ip, string $sal, int $max, int $ahora): bool
 {
     $dia = gmdate('Ymd', $ahora);
@@ -300,22 +369,34 @@ function demo_limite_visitante(string $dir, string $ip, string $sal, int $max, i
     return $permitido;
 }
 
-// Guarda la solicitud respetando el tope diario. Devuelve 'ok', 'limite' o 'error'.
-function demo_guardar_con_tope(string $cola, string $limites, array $lead, int $max, int $ahora): string
+// Guarda la solicitud respetando el tope diario ($max) y el tope global por minuto ($maxMinuto: frena a
+// quien reparte envíos entre muchas IP). Devuelve 'ok', 'limite' (día), 'ritmo' (minuto) o 'error'.
+function demo_guardar_con_tope(string $cola, string $limites, array $lead, int $max, int $ahora, int $maxMinuto = 10): string
 {
     $viejo = umask(0077);
     try {
         $fh = @fopen("$limites/cap-" . gmdate('Ymd', $ahora) . '.txt', 'c+');
         if (!$fh) { error_log('Digital Lab demo: no se puede abrir el tope diario'); return 'error'; }
+        $fr = @fopen("$limites/ritmo.json", 'c+');
+        if (!$fr) { fclose($fh); error_log('Digital Lab demo: no se puede abrir el tope por minuto'); return 'error'; }
         try {
             flock($fh, LOCK_EX);
+            flock($fr, LOCK_EX);                 // siempre en este orden: día y luego minuto
             $n = (int) stream_get_contents($fh);
             if ($n >= $max) return 'limite';
+            $marcas = json_decode((string) stream_get_contents($fr), true);
+            $marcas = array_values(array_filter(is_array($marcas) ? $marcas : [],
+                fn($x) => is_int($x) && $x > $ahora - DEMO_RITMO && $x <= $ahora));
+            if (count($marcas) >= $maxMinuto) return 'ritmo';
             if (!demo_escribir_lead($cola, $lead, $ahora)) return 'error';
             ftruncate($fh, 0); rewind($fh); fwrite($fh, (string) ($n + 1));
             fflush($fh);
+            $marcas[] = $ahora;
+            ftruncate($fr, 0); rewind($fr); fwrite($fr, json_encode($marcas));
+            fflush($fr);
             return 'ok';
         } finally {
+            flock($fr, LOCK_UN); fclose($fr);
             flock($fh, LOCK_UN); fclose($fh);
         }
     } finally {
@@ -346,6 +427,22 @@ function demo_escribir_lead(string $cola, array $lead, int $ahora): bool
         error_log('Digital Lab demo: fallo al guardar la solicitud');
         return false;
     }
+    return true;
+}
+
+// Purga acotada: como mucho una vez cada DEMO_PURGA_CADA segundos (mtime de limites/purga). Sin tráfico
+// no purga; el Cron de la tarea 14 lo cubre. Devuelve true si ha purgado.
+function demo_purgar_si_toca(string $cola, string $limites, int $ahora): bool
+{
+    $marca = "$limites/purga";
+    clearstatcache(true, $marca);
+    $m = is_file($marca) ? (int) @filemtime($marca) : 0;
+    // Una marca «del futuro» (reloj cambiado) no bloquea la purga para siempre
+    if ($m > $ahora - DEMO_PURGA_CADA && $m <= $ahora) return false;
+    $viejo = umask(0077);
+    @touch($marca, $ahora);                  // se marca antes: otra petición simultánea ya no purga
+    umask($viejo);
+    demo_purgar($cola, $ahora);
     return true;
 }
 
