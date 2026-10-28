@@ -294,8 +294,9 @@ function demo_cola_segura(array $cfg, array $server): ?string
 
 // IP del visitante. Por defecto, REMOTE_ADDR. Si hay un CDN delante (config «ip_cabecera»), la cabecera
 // solo se cree cuando la petición llega desde una red del CDN («ip_proxies»): si no, cualquiera podría
-// inventarse la cabecera y saltarse el límite. Si la cabecera es una lista («a, b, c»), se toma el
-// ÚLTIMO valor válido: es el que añadió el CDN; los primeros los puede escribir el propio cliente.
+// inventarse la cabecera y saltarse el límite. Si la cabecera es una lista («a, b, c»), solo vale el
+// ÚLTIMO valor, que es el que añadió el CDN; si no es una IP válida (con puerto, vacío, basura) se usa
+// REMOTE_ADDR y nunca un valor anterior, porque esos los puede escribir el propio cliente.
 function demo_ip(array $server, array $cfg): string
 {
     $remota = (string) ($server['REMOTE_ADDR'] ?? '0.0.0.0');
@@ -307,11 +308,9 @@ function demo_ip(array $server, array $cfg): string
         if (demo_ip_en_red($remota, $red)) { $desdeCdn = true; break; }
     }
     if (!$desdeCdn) return $remota;
-    $valores = array_reverse(array_map('trim', explode(',', $server[$cab])));
-    foreach ($valores as $v) {
-        if (filter_var($v, FILTER_VALIDATE_IP)) return $v;
-    }
-    return $remota;
+    $valores = explode(',', $server[$cab]);
+    $ultimo = trim((string) end($valores));
+    return filter_var($ultimo, FILTER_VALIDATE_IP) ? $ultimo : $remota;
 }
 
 // ¿Está $ip dentro de $red («203.0.113.0/24», «2001:db8::/32» o una IP sola)?

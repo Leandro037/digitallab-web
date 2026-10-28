@@ -292,8 +292,12 @@ ok(demo_ip($s('10.1.2.3', '192.0.2.50'), $soloCab) === '10.1.2.3', 'ip_cabecera 
 $cfgXff = $CFG + ['ip_cabecera' => 'HTTP_X_FORWARDED_FOR', 'ip_proxies' => ['10.0.0.0/8', '2001:db8:ffff::/48']];
 ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '1.2.3.4, 192.0.2.60'], $cfgXff) === '192.0.2.60',
     'lista con comas: toma el ÚLTIMO valor válido (el que añadió el CDN), no el primero');
-ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '192.0.2.61 , basura'], $cfgXff) === '192.0.2.61',
-    'lista con un valor no válido al final: toma el último válido');
+ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '192.0.2.61 , basura'], $cfgXff) === '10.0.0.1',
+    'lista con un valor no válido al final: REMOTE_ADDR, no el anterior (que lo escribe el cliente)');
+ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7, 192.0.2.62:443'], $cfgXff) === '10.0.0.1',
+    'último valor con puerto (no es IP): REMOTE_ADDR, no 198.51.100.7');
+ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7, '], $cfgXff) === '10.0.0.1',
+    'último valor vacío: REMOTE_ADDR');
 ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => 'basura'], $cfgXff) === '10.0.0.1', 'sin ningún valor válido: REMOTE_ADDR');
 ok(demo_ip(['REMOTE_ADDR' => '2001:db8:ffff:1::5', 'HTTP_X_FORWARDED_FOR' => '2001:db8:aa::1'], $cfgXff) === '2001:db8:aa::1', 'CDN por IPv6 (rango /48)');
 ok(demo_ip_en_red('10.255.0.1', '10.0.0.0/8') && !demo_ip_en_red('11.0.0.1', '10.0.0.0/8') && demo_ip_en_red('192.0.2.7', '192.0.2.7')
