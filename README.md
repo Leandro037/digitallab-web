@@ -107,7 +107,9 @@ Con `?demo` al final de la dirección se ve una simulación con la auditoría de
 
 **Respuestas** (siempre JSON con `ok`): 200 éxito · 400 `campos` (con `campos: {nombre: falta|largo, …}`), `datos` o `tiempo` · 403 `origen` · 405 · 409 `version` · 413 · 415 · 429 `limite` (con `Retry-After`) · 500 `error` · 503 `sin_servicio`. Detalle en la cabecera de `demo/demo.php`.
 
-**Pruebas:** `php pruebas/demo/prueba-demo.php` (PHP 8.1+, sin dependencias; trabaja en una carpeta temporal con datos ficticios). `pruebas/` no se sube a `public_html`.
+**En el navegador** (`demo/demo.js`, tarea 6): valida cada campo con los textos de `docs/textos/demo.md`, exige la casilla 1 (`consent_respuesta`, sin marcar al cargar), copia las `utm_*` de la URL a los campos ocultos (solo `[A-Za-z0-9_-]`, hasta 60; sin cookies ni `localStorage`) y envía JSON a `demo.php` con las casillas como booleanos y `t` en milisegundos. Si se envía antes de 3 s (autorrelleno), espera a los 3 s para que `demo.php` no lo descarte como robot. Estados: enviando · éxito · error por campo (400 `campos`) · límite (429) · fallo (resto y sin red; sin «Reintentar» en 409 `version`). `?estado=…` fuerza un estado solo en `localhost`/`127.0.0.1`. En móvil y tablet `demo/hilos.js` dibuja los hilos sin pasar por detrás de ningún texto.
+
+**Pruebas:** `php pruebas/demo/prueba-demo.php` y `php pruebas/demo/prueba-carga-e2e.php` (PHP 8.1+, sin dependencias; trabajan en una carpeta temporal con datos ficticios). En el navegador, con el Playwright de DL Studio: `node pruebas/demo/e2e-demo.mjs` (simula `demo.php`; guarda la carga real en `pruebas/demo/carga-e2e.json`) y `node pruebas/demo/hilos-movil.mjs` (0 cruces de hilos con texto de 360 a 1100 px). `pruebas/` no se sube a `public_html`.
 
 ## Acceso al panel (`/login/`)
 

@@ -3,7 +3,9 @@
  * Igual que studio/hilos.js (y su versión ampliada de la propuesta A), con un cambio: en pantallas anchas cada hilo
  * recorre, de arriba abajo, todos los puertos visibles de su color ([data-flow-node="k"] que no son finales y
  * [data-flow-via="k"]), en lugar de una lista fija de tarjetas de /studio. Así sirve aunque cambie el número de
- * tarjetas de cada sección. En móvil baja por el carril izquierdo como en /studio (lo revisa el 20 en la tarea 6).
+ * tarjetas de cada sección. En móvil y tablet (≤ 1100 px) baja por el carril izquierdo como en /studio, pero la bajada
+ * y la llegada buscan franjas sin texto y el carril queda dentro del margen (tarea 6): ningún hilo pasa por detrás de un
+ * texto. Si no encuentra hueco, usa la ruta anterior.
  */
 (function () {
   'use strict';
@@ -78,6 +80,69 @@
     })();
   }
 
+  // Móvil y tablet (tarea 6): ningún hilo puede pasar por detrás de un texto.
+  // Obstáculos = cada línea de texto visible, ampliada MARGEN px (más que medio trazo del cometa, 4,5 px).
+  const MARGEN = 6;
+  const caja = (r) => [r.left - MARGEN, r.top + scrollY - MARGEN, r.right + MARGEN, r.bottom + scrollY + MARGEN];
+  // Devuelve { texto, todo }: los tramos rectos que bajan del CEO y suben al puerto final solo evitan texto (en el
+  // diseño del 29 el hilo verde ya pasa bajo la flecha «Bajar»); las franjas de cruce y el carril evitan además enlaces
+  // y botones, que tienen fondo y cortarían el hilo.
+  function obstaculos() {
+    const out = [];
+    const rg = document.createRange();
+    const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!n.data.trim()) continue;
+      const p = n.parentElement;
+      if (!p || p.closest('.st-top, .sr, svg')) continue;
+      rg.selectNodeContents(n);
+      for (const r of rg.getClientRects()) {
+        if (r.width > 1 && r.height > 1) out.push(caja(r));
+      }
+    }
+    const todo = out.slice();
+    for (const b of qa('main a, main button')) {
+      if (b.offsetParent === null) continue;
+      const r = b.getBoundingClientRect();
+      if (r.width > 1 && r.height > 1) todo.push(caja(r));
+    }
+    return { texto: out, todo };
+  }
+  // Ruta en tres tramos: baja recta desde el lienzo del CEO, cruza al carril izquierdo por una franja libre,
+  // baja por el margen y cruza al puerto final por otra franja libre. Devuelve un «d» por hilo o null.
+  function rutaCarril(x0s, y0, ends, lanes, obs) {
+    const libreEn = (cajas) => (xa, ya, xb, yb) => !cajas.some((z) => z[0] < xb && z[2] > xa && z[1] < yb && z[3] > ya);
+    const sinTexto = libreEn(obs.texto), libre = libreEn(obs.todo);
+    const ALTOS = [72, 56, 40, 28, 20];
+    const BUENO = 40;   // franja preferida; si no hay ninguna, la más alta encontrada
+    const xMin = Math.min(...lanes);
+    const xMaxB = Math.max(...x0s), xMaxL = Math.max(...ends.map((e) => e.cx));
+    const ey = Math.min(...ends.map((e) => e.cy));
+    const alto = (xa, ya, xb, haciaArriba) => ALTOS.find((h) => (haciaArriba ? libre(xa, ya - h, xb, ya) : libre(xa, ya, xb, ya + h))) || 0;
+    let bajada = null, llegada = null;
+    for (let ya = y0; ya < ey; ya += 4) {
+      if (!x0s.every((x) => sinTexto(x, y0, x, ya))) break;
+      const h = alto(xMin, ya, xMaxB, false);
+      if (h && (!bajada || h > bajada[1] - bajada[0])) bajada = [ya, ya + h];
+      if (h >= BUENO) break;
+    }
+    if (!bajada) return null;
+    for (let yd = ey; yd - 20 > bajada[1]; yd -= 4) {
+      if (!ends.every((e) => sinTexto(e.cx, yd, e.cx, e.cy))) break;
+      const h = alto(xMin, yd, xMaxL, true);
+      if (h && yd - h > bajada[1] && (!llegada || h > llegada[1] - llegada[0])) llegada = [yd - h, yd];
+      if (h >= BUENO) break;
+    }
+    if (!llegada || !lanes.every((x) => libre(x, bajada[1], x, llegada[0]))) return null;
+    const f = (v) => v.toFixed(1);
+    const [ya, yb] = bajada, [yc, yd] = llegada, hb = (yb - ya) / 2, hl = (yd - yc) / 2;
+    return lanes.map((lx, k) => {
+      const x0 = x0s[k], e = ends[k];
+      return `M${f(x0)} ${f(y0)} L${f(x0)} ${f(ya)} C${f(x0)} ${f(ya + hb)} ${f(lx)} ${f(yb - hb)} ${f(lx)} ${f(yb)}` +
+        ` L${f(lx)} ${f(yc)} C${f(lx)} ${f(yc + hl)} ${f(e.cx)} ${f(yd - hl)} ${f(e.cx)} ${f(yd)} L${f(e.cx)} ${f(e.cy)}`;
+    });
+  }
+
   function layoutFlow() {
     const W = document.documentElement.clientWidth;
     svg.setAttribute('width', W); svg.setAttribute('height', 10);
@@ -95,10 +160,14 @@
       return [...els].filter((el) => el.offsetParent !== null).map((el) => { const r = docRect(el); return [r.cx, r.cy]; });
     }) : [];
     const padL = parseFloat(getComputedStyle(q('.st-sec')).paddingLeft) || 16;
+    // Carril estrecho: los 3 hilos, a 3 px entre sí, terminan MARGEN + 1 px antes de donde empieza el texto
+    const lanes = [0, 1, 2].map((k) => Math.max(2, padL - MARGEN - 1 - (2 - k) * 3));
+    const x0s = lines.map((ln, k) => cv.cx + (k - 1) * cv.w * 0.165);
+    const carril = !wide && ends.length >= lines.length ? rutaCarril(x0s, y0, ends.slice(0, lines.length), lanes, obstaculos()) : null;
 
     lines.forEach((ln, k) => {
       const off = k - 1;
-      const x0 = cv.cx + off * cv.w * 0.165;
+      const x0 = x0s[k];
       const e = ends[k]; if (!e) return;
       let p;
       if (wide && paso[k].length) {
@@ -108,7 +177,7 @@
         const lane = padL / 2 + off * 4;
         p = [[x0, y0], [lane, y0 + 260], [lane, e.cy - 34], [e.cx, e.cy]];
       }
-      const d = buildPath(p);
+      const d = carril ? carril[k] : buildPath(p);
       for (const el of [ln.glow, ln.core]) el.setAttribute('d', d);
       for (const c of ln.comets) for (const l of c.layers) l.el.setAttribute('d', d);
       ln.total = ln.core.getTotalLength();
