@@ -4,8 +4,7 @@ declare(strict_types=1);
 define('DL_PANEL', 1);
 require __DIR__ . '/lib.php';
 
-header('Cache-Control: no-store');
-header('X-Robots-Tag: noindex');
+ps_cabeceras();
 try {
     panel_exigir();
     $g = static fn (string $k, int $max = 120): string => mb_substr(trim((string) ($_GET[$k] ?? '')), 0, $max);

@@ -27,6 +27,8 @@
     try {
       const r = await fetch('entrar.php', {
         method: 'POST',
+        // Con Referrer-Policy: no-referrer, sin esto el POST podría salir con «Origin: null» y el servidor lo rechaza
+        referrerPolicy: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, web: '' })
       });

@@ -32,6 +32,7 @@ return [
 
     // IP del visitante detrás de un CDN (hallazgo H2 del 25, tarea 10). Vacío = REMOTE_ADDR, que es lo
     // correcto si el hosting ya entrega la IP real del visitante en REMOTE_ADDR.
+    // También la usa el login del panel (tarea 50) para su bloqueo progresivo: una sola configuración.
     //
     // Cómo elegirla DESPUÉS de publicar (no antes: depende de lo que mida el servidor):
     //   1. Enviar el formulario desde dos redes distintas (p. ej. wifi y datos del móvil) y mirar en
