@@ -269,6 +269,12 @@ fieldset.field legend { margin-bottom: 8px; padding: 0; color: var(--muted); fon
   .dm-mosaic { gap: 4px; }
   .dm-mosaic li { padding: 4px 0 6px; border-radius: 10px; }
   .legal-foot .wrap { flex-direction: column; align-items: flex-start; }
+  /* Objetivos táctiles ≥ 44×44 px (tarea 9, ronda 3). La cabecera conserva su altura: 44 + 2×12 = 40 + 2×14. */
+  .st-top .wrap { padding-block: 12px; }
+  .st-brand { min-height: 44px; }
+  .st-top .btn--sm { min-height: 44px; }
+  .st-cue { min-height: 44px; justify-content: center; }
+  .fa-pie a, .form__legal a, .fa-incl a, .fa-faq__list details p a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @media (max-width: 560px) {
   .dm-incl { grid-template-columns: minmax(0, 1fr); }
