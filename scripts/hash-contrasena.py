@@ -13,6 +13,8 @@ Uso (desde la raíz del repositorio):
   python scripts/hash-contrasena.py --subir                                   # SIMULA (por defecto)
   python scripts/hash-contrasena.py --subir --sin-red                         # simula sin conectar
   python scripts/hash-contrasena.py --subir --aplicar --aprobado-por "Leandro"
+  python scripts/hash-contrasena.py --solo-sal --subir                        # simula: solo añade panel_sal si falta
+  python scripts/hash-contrasena.py --solo-sal --subir --aplicar --aprobado-por "Leandro"
   python scripts/hash-contrasena.py --restaurar-config docs/backups/<carpeta>  # simula volver atrás
   python scripts/hash-contrasena.py --restaurar-config docs/backups/<carpeta> --aplicar --aprobado-por "Leandro"
 
@@ -33,6 +35,10 @@ leads (clase Ftp; otra ruta con --publicador o DL_PUBLICADOR):
      No se copia el resto del archivo (lleva las claves de Anthropic, Google, etc.). Borra esa carpeta cuando
      compruebes que el login nuevo funciona.
   4. Sube a un temporal, le pone los mismos permisos que tenía, comprueba tamaño y permisos y lo renombra.
+--solo-sal (con --subir): para quien mantiene su contraseña. No la pide ni toca admin_password_hash ni ninguna otra
+clave; genera una panel_sal aleatoria y la añade solo si no existe (si existe no hace nada, salvo --forzar). Comprueba
+con PHP que el admin_password_hash actual es un hash que password_verify acepta y avisa si no. La copia previa lleva
+solo el valor anterior de panel_sal (o null). Nunca muestra la sal.
 --restaurar-config repone esas dos claves (o quita la que no existía) en el archivo REMOTO ACTUAL; las demás
 claves, aunque hayan cambiado después, no se tocan.
 El correo de acceso sigue en 'admin_email'. Ver docs/traspasos/20-tarea-50-panel-leads.md (proyecto leads).
@@ -79,6 +85,24 @@ try { $c = eval('?>' . $src); } catch (Throwable $e) { fwrite(STDERR, "no es PHP
 if (!is_array($c)) { fwrite(STDERR, "no devuelve un array\n"); exit(4); }
 $o = [];
 foreach ($c as $k => $v) $o[(string) $k] = hash('sha256', serialize($v));
+echo json_encode($o);
+"""
+
+# Comprueba el hash de admin_password_hash sin devolverlo: solo si existe y qué algoritmo es.
+CODIGO_HASH = r"""
+defined('DL_AUDIT') || define('DL_AUDIT', 1);
+defined('DL_PANEL') || define('DL_PANEL', 1);
+$src = stream_get_contents(STDIN);
+try { $c = eval('?>' . $src); } catch (Throwable $e) { fwrite(STDERR, "no es PHP válido\n"); exit(3); }
+if (!is_array($c)) { exit(4); }
+$h = $c['admin_password_hash'] ?? null;
+$o = ['presente' => is_string($h) && $h !== '', 'ok' => false, 'algo' => ''];
+if ($o['presente']) {
+    $i = password_get_info($h);
+    $pref = strncmp($h, '$2y$', 4) === 0 || strncmp($h, '$argon2id$', 10) === 0 || strncmp($h, '$argon2i$', 9) === 0;
+    $o['ok'] = $pref && $i['algo'] !== null && password_verify('prueba-x', $h) === false;
+    $o['algo'] = (string) ($i['algoName'] ?? '');
+}
 echo json_encode($o);
 """
 
@@ -136,6 +160,11 @@ def generar_valores(php: str, bcrypt: bool) -> dict:
     return {"admin_password_hash": h, "panel_sal": secrets.token_urlsafe(48)}
 
 
+def generar_sal() -> dict:
+    """Modo --solo-sal: no hay contraseña; solo una sal aleatoria del mismo formato (64 caracteres URL-safe)."""
+    return {"panel_sal": secrets.token_urlsafe(48)}
+
+
 # ---------- cambiar solo dos claves de la configuración ----------
 
 def _patron(clave: str):
@@ -152,10 +181,10 @@ def _cierre(texto: str):
     return ini if texto[ini:pos].strip() == "" else pos
 
 
-def analizar(texto: str) -> dict:
+def analizar(texto: str, claves=CLAVES) -> dict:
     """{clave: 'sustituir' | 'añadir'}. ValueError si no se puede cambiar con seguridad (mejor a mano)."""
     plan = {}
-    for clave in CLAVES:
+    for clave in claves:
         menciones = len(re.findall(r"['\"]" + re.escape(clave) + r"['\"]", texto))
         lineas = list(_patron(clave).finditer(texto))
         if menciones == 0:
@@ -169,11 +198,11 @@ def analizar(texto: str) -> dict:
     return plan
 
 
-def valores_actuales(texto: str) -> dict:
+def valores_actuales(texto: str, claves=CLAVES) -> dict:
     """{clave: literal PHP tal cual está en el archivo, o None si la clave no existe}. Nunca se imprime."""
-    analizar(texto)
+    analizar(texto, claves)
     previos = {}
-    for clave in CLAVES:
+    for clave in claves:
         m = _patron(clave).search(texto)
         previos[clave] = m.group("val") if m else None
     return previos
@@ -187,15 +216,15 @@ def _quitar_linea(texto: str, clave: str) -> str:
     return pat.sub("", texto, count=1)
 
 
-def poner_literales(texto: str, literales: dict) -> str:
-    """Sustituye, añade o (si el literal es None) quita SOLO las dos claves del panel."""
-    plan = analizar(texto)
-    for clave in CLAVES:
+def poner_literales(texto: str, literales: dict, claves=CLAVES) -> str:
+    """Sustituye, añade o (si el literal es None) quita SOLO las claves del panel indicadas (por defecto las dos)."""
+    plan = analizar(texto, claves)
+    for clave in claves:
         lit = literales.get(clave)
         if lit is not None and not (isinstance(lit, str) and re.fullmatch(_LITERAL, lit)):
             raise ValueError(f"valor inesperado para «{clave}»")
     nuevo = texto
-    for clave in CLAVES:
+    for clave in claves:
         if plan[clave] != "sustituir":
             continue
         if literales[clave] is None:
@@ -203,7 +232,7 @@ def poner_literales(texto: str, literales: dict) -> str:
         else:
             m = _patron(clave).search(nuevo)
             nuevo = nuevo[:m.start("val")] + literales[clave] + nuevo[m.end("val"):]
-    faltan = [c for c in CLAVES if plan[c] == "añadir" and literales[c] is not None]
+    faltan = [c for c in claves if plan[c] == "añadir" and literales[c] is not None]
     if faltan:
         nl = "\r\n" if "\r\n" in nuevo else "\n"
         pos = _cierre(nuevo)
@@ -215,11 +244,11 @@ def poner_literales(texto: str, literales: dict) -> str:
     return nuevo
 
 
-def sustituir(texto: str, valores: dict) -> str:
-    for clave in CLAVES:
+def sustituir(texto: str, valores: dict, claves=CLAVES) -> str:
+    for clave in claves:
         if not isinstance(valores.get(clave), str) or not _VALOR_SEGURO.fullmatch(valores[clave]):
             raise ValueError(f"valor inesperado para «{clave}»")
-    return poner_literales(texto, {c: "'" + valores[c] + "'" for c in CLAVES})
+    return poner_literales(texto, {c: "'" + valores[c] + "'" for c in claves}, claves)
 
 
 def _resumen(php: str, texto: str) -> dict:
@@ -233,30 +262,44 @@ def _sha_php_texto(v: str) -> str:
     return hashlib.sha256(f's:{len(v.encode("utf-8"))}:"{v}";'.encode("utf-8")).hexdigest()
 
 
-def comprobar(php: str, original: str, nuevo: str, valores: dict) -> None:
-    """El archivo nuevo es PHP válido, tiene los dos valores nuevos y el resto de claves idéntico."""
+def comprobar(php: str, original: str, nuevo: str, valores: dict, claves=CLAVES) -> None:
+    """El archivo nuevo es PHP válido, tiene los valores nuevos y el resto de claves idéntico."""
     a = _resumen(php, original)
     b = _resumen(php, nuevo)
-    if set(b) != set(a) | set(CLAVES):
-        raise ValueError("cambiarían otras claves además de las dos del panel")
-    distintas = [k for k in a if k not in CLAVES and a[k] != b[k]]
+    if set(b) != set(a) | set(claves):
+        raise ValueError("cambiarían otras claves además de las del panel indicadas")
+    distintas = [k for k in a if k not in claves and a[k] != b[k]]
     if distintas:
-        raise ValueError(f"cambiaría el valor de {len(distintas)} clave(s) que no son del panel")
-    if any(b[k] != _sha_php_texto(valores[k]) for k in CLAVES):
+        raise ValueError(f"cambiaría el valor de {len(distintas)} clave(s) que no se iban a tocar")
+    if any(b[k] != _sha_php_texto(valores[k]) for k in claves):
         raise ValueError("los valores nuevos no quedaron bien escritos")
 
 
+def comprobar_hash_existente(php: str, texto: str) -> tuple:
+    """(ok, descripción sin valores). ok si admin_password_hash existe y password_verify lo entiende."""
+    r = subprocess.run([php, "-r", CODIGO_HASH], input=texto.encode("utf-8"), capture_output=True, timeout=60)
+    if r.returncode != 0:
+        return False, "PHP no pudo evaluar la configuración"
+    d = json.loads(r.stdout.decode("utf-8"))
+    if not d["presente"]:
+        return False, "no existe o no es un texto"
+    if not d["ok"]:
+        return False, "no tiene el formato de un hash que password_verify acepte (esperado $2y$, $argon2id$ o $argon2i$)"
+    return True, "hash " + d["algo"]
+
+
 def comprobar_restauracion(php: str, antes: str, despues: str, previos: dict) -> None:
-    """Tras reponer: PHP válido, las demás claves idénticas y las dos del panel con su valor anterior (o ausentes)."""
+    """Tras reponer: PHP válido, las demás claves idénticas y las del panel con su valor anterior (o ausentes)."""
+    claves = tuple(previos)
     a = _resumen(php, antes)
     b = _resumen(php, despues)
-    esperadas = (set(a) - set(CLAVES)) | {k for k in CLAVES if previos[k] is not None}
+    esperadas = (set(a) - set(claves)) | {k for k in claves if previos[k] is not None}
     if set(b) != esperadas:
-        raise ValueError("cambiarían otras claves además de las dos del panel")
-    distintas = [k for k in a if k not in CLAVES and a[k] != b[k]]
+        raise ValueError("cambiarían otras claves además de las del panel")
+    distintas = [k for k in a if k not in claves and a[k] != b[k]]
     if distintas:
         raise ValueError(f"cambiaría el valor de {len(distintas)} clave(s) que no son del panel")
-    puestas = [k for k in CLAVES if previos[k] is not None]
+    puestas = [k for k in claves if previos[k] is not None]
     if puestas:
         ref = _resumen(php, "<?php return [" + ", ".join(f"'{k}' => {previos[k]}" for k in puestas) + "];")
         if any(b[k] != ref[k] for k in puestas):
@@ -278,7 +321,7 @@ def guardar_previas(carpeta: Path, previos: dict) -> None:
 def leer_previas(ruta: Path) -> dict:
     try:
         previos = json.loads(ruta.read_text(encoding="utf-8"))["claves"]
-        ok = isinstance(previos, dict) and set(previos) == set(CLAVES) and all(
+        ok = isinstance(previos, dict) and set(previos) in (set(CLAVES), {"panel_sal"}) and all(
             v is None or (isinstance(v, str) and re.fullmatch(_LITERAL, v)) for v in previos.values())
     except (OSError, ValueError, KeyError, TypeError):
         ok = False
@@ -328,12 +371,17 @@ def _leer_remota(ftp):
 
 def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
     aplicar = a.aplicar
-    print(f"Modo: {'APLICAR' if aplicar else 'SIMULAR (no se escribe nada ni se pide la contraseña)'}")
+    solo = bool(getattr(a, "solo_sal", False))
+    forzar = bool(getattr(a, "forzar", False))
+    claves = ("panel_sal",) if solo else CLAVES
+    print(f"Modo: {'APLICAR' if aplicar else 'SIMULAR (no se escribe nada ni se pide la contraseña)'}"
+          + (" · solo la sal (admin_password_hash no se toca; no se pide contraseña)" if solo else ""))
     print(f"Destino: {CONFIG_REMOTA} (carpeta personal del FTP, al lado de public_html)")
     if a.sin_red:
         print("(sin red: no se consulta el servidor)")
-        for c in CLAVES:
-            print(f"- {c}: se sustituiría si existe o se añadiría al final del array (sin mostrar valores)")
+        for c in claves:
+            print(f"- {c}: " + ("se añadiría al final del array solo si no existe" + (" (con --forzar, también se sustituiría)" if forzar else "; si existe, no se hace nada")
+                               if solo else "se sustituiría si existe o se añadiría al final del array (sin mostrar valores)"))
         print("Las demás claves no se tocan; los permisos del archivo se conservan.")
         print("\nSimulación terminada: no se subió ni se guardó nada.")
         return 0
@@ -345,16 +393,28 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         modo, original, texto = _leer_remota(ftp)
         print(f"Ahora: {len(original)} bytes, sha256 {sha(original)}, permisos {modo}")
         try:
-            plan = analizar(texto)
+            plan = analizar(texto, claves)
         except ValueError as e:
             sys.exit(f"No se cambia: {e}.")
-        for c in CLAVES:
-            print(f"- {c}: " + ("existe -> se sustituiría su valor" if plan[c] == "sustituir" else "no existe -> se añadiría"))
+        if solo:
+            bueno, desc = comprobar_hash_existente(php, texto)
+            if bueno:
+                print(f"- admin_password_hash: existe y password_verify lo acepta ({desc}); no se toca")
+            else:
+                print(f"  AVISO: admin_password_hash {desc}. La contraseña actual podría no funcionar; revísalo antes de seguir.")
+            if plan["panel_sal"] == "sustituir" and not forzar:
+                print("- panel_sal: ya existe -> no se hace nada (usa --forzar para cambiarla)")
+                print("\nNada que hacer: no se subió ni se guardó nada.")
+                return 0
+            print("- panel_sal: " + ("existe y --forzar -> se sustituiría su valor" if plan["panel_sal"] == "sustituir" else "no existe -> se añadiría"))
+        else:
+            for c in CLAVES:
+                print(f"- {c}: " + ("existe -> se sustituiría su valor" if plan[c] == "sustituir" else "no existe -> se añadiría"))
         print("- resto de claves: sin cambios (se comprueba con PHP antes de subir)")
         if not _MODO.fullmatch(modo or ""):
             print(f"  AVISO: el servidor no informa de los permisos ({modo}); al aplicar me detendría.")
         copia = pf.BACKUPS / sello / NOMBRE_COPIA
-        print(f"Copia previa (solo los valores anteriores de {' y '.join(CLAVES)}; el resto del archivo no se copia) -> {copia}")
+        print(f"Copia previa (solo los valores anteriores de {' y '.join(claves)}; el resto del archivo no se copia) -> {copia}")
         print(f"Subida: {CONFIG_REMOTA}.tmp-{sello} -> SITE CHMOD {modo[-3:] if modo else '?'} -> comprobar -> renombrar")
         if not aplicar:
             print("\nSimulación terminada: no se subió ni se guardó nada.")
@@ -362,18 +422,19 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         # --- aplicar ---
         if not _MODO.fullmatch(modo or ""):
             sys.exit("No se aplica: no sé qué permisos tiene el archivo y no los puedo conservar.")
-        valores = (pedir or (lambda: generar_valores(php, a.bcrypt)))()
+        valores = (pedir or (generar_sal if solo else (lambda: generar_valores(php, a.bcrypt))))()
         ftp.secretos.extend(valores.values())          # por si un error del servidor los repitiera
         try:
-            nuevo = sustituir(texto, valores)
-            comprobar(php, texto, nuevo, valores)
+            nuevo = sustituir(texto, valores, claves)
+            comprobar(php, texto, nuevo, valores, claves)
         except ValueError as e:
             sys.exit(f"No se sube: {e}. Nada cambió.")
         nuevo_b = nuevo.encode("utf-8")
-        guardar_previas(copia.parent, valores_actuales(texto))
+        guardar_previas(copia.parent, valores_actuales(texto, claves))
         (copia.parent / "manifiesto.json").write_text(json.dumps({
             "remota": CONFIG_REMOTA, "modo": modo, "sha_previo": sha(original), "sha_nuevo": sha(nuevo_b),
-            "claves": plan, "aprobado_por": a.aprobado_por.strip(), "script": "hash-contrasena.py --subir",
+            "claves": plan, "aprobado_por": a.aprobado_por.strip(),
+            "script": "hash-contrasena.py --subir" + (" --solo-sal" if solo else ""),
         }, indent=2, ensure_ascii=False), encoding="utf-8")
         if ftp.leer(CONFIG_REMOTA) != original:
             sys.exit("El archivo del servidor cambió mientras tanto: no se sube. Vuelve a ejecutarlo.")
@@ -382,10 +443,14 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         except Exception as e:
             sys.exit(f"Fallo al subir: {ftp.limpio(e)}. El archivo del servidor no cambió.")
         print(f"HECHO: {CONFIG_REMOTA} {ftp.info(CONFIG_REMOTA)[0]} bytes, permisos {ftp.modo(CONFIG_REMOTA)}")
-        print(f"Valores anteriores de las dos claves en {copia.parent}")
+        print(f"Valores anteriores de {'la sal' if solo else 'las dos claves'} en {copia.parent}")
         print(f"Para volver atrás: python scripts/hash-contrasena.py --restaurar-config \"{copia.parent}\" --aplicar --aprobado-por \"<nombre>\"")
-        print("Prueba ahora a entrar en /login/ con la contraseña nueva. Las sesiones abiertas siguen hasta que caduquen.")
-        print(f"Cuando funcione, borra la carpeta {copia.parent} (lleva el hash y la sal anteriores).")
+        if solo:
+            print("Prueba ahora a entrar en /login/ con tu contraseña de siempre (no ha cambiado).")
+            print(f"Cuando funcione, borra la carpeta {copia.parent}.")
+        else:
+            print("Prueba ahora a entrar en /login/ con la contraseña nueva. Las sesiones abiertas siguen hasta que caduquen.")
+            print(f"Cuando funcione, borra la carpeta {copia.parent} (lleva el hash y la sal anteriores).")
         return 0
     finally:
         valores = None
@@ -400,35 +465,36 @@ def cmd_restaurar(a, pf, ftp_factory=None, ahora=None) -> int:
     if not copia.is_file() or not mf.is_file():
         sys.exit(f"En {carpeta} no hay {NOMBRE_COPIA} y manifiesto.json de hash-contrasena.py.")
     previos = leer_previas(copia)
+    claves = tuple(c for c in CLAVES if c in previos)
     php = buscar_php(a.php)
     print(f"Modo: {'APLICAR restauración' if a.aplicar else 'SIMULAR restauración (no se escribe nada)'}")
-    print(f"Se repondrían solo {' y '.join(CLAVES)} de {CONFIG_REMOTA} con lo guardado en {carpeta.name}; el resto del archivo remoto actual no se toca")
+    print(f"Se repondrían solo {' y '.join(claves)} de {CONFIG_REMOTA} con lo guardado en {carpeta.name}; el resto del archivo remoto actual no se toca")
     ftp = ftp_factory() if ftp_factory else pf.Ftp(pf.cargar_env())
     sello = (ahora or datetime.now()).strftime("%Y-%m-%d-%H%M%S")
     try:
         modo, actual, texto = _leer_remota(ftp)
         print(f"Ahora: {len(actual)} bytes, sha256 {sha(actual)}, permisos {modo}")
         try:
-            plan = analizar(texto)
-            nuevo = poner_literales(texto, previos)
+            plan = analizar(texto, claves)
+            nuevo = poner_literales(texto, previos, claves)
             comprobar_restauracion(php, texto, nuevo, previos)
         except ValueError as e:
             sys.exit(f"No se restaura: {e}.")
-        for c in CLAVES:
+        for c in claves:
             if previos[c] is None:
                 print(f"- {c}: no existía antes -> " + ("se quitaría" if plan[c] == "sustituir" else "ya no está, sin cambios"))
             else:
                 print(f"- {c}: " + ("se sustituiría por su valor anterior" if plan[c] == "sustituir" else "se añadiría con su valor anterior"))
         print("- resto de claves: sin cambios (se comprueba con PHP antes de subir)")
         nueva = pf.BACKUPS / sello / NOMBRE_COPIA
-        print(f"Valores actuales de las dos claves -> {nueva} (por si hay que deshacer la restauración)")
+        print(f"Valores actuales de {' y '.join(claves)} -> {nueva} (por si hay que deshacer la restauración)")
         if not a.aplicar:
             print("\nSimulación terminada: no se cambió nada.")
             return 0
         if not _MODO.fullmatch(modo or ""):
             sys.exit("No se aplica: no sé qué permisos tiene el archivo y no los puedo conservar.")
         nuevo_b = nuevo.encode("utf-8")
-        guardar_previas(nueva.parent, valores_actuales(texto))
+        guardar_previas(nueva.parent, valores_actuales(texto, claves))
         (nueva.parent / "manifiesto.json").write_text(json.dumps({
             "remota": CONFIG_REMOTA, "modo": modo, "sha_previo": sha(actual), "sha_nuevo": sha(nuevo_b),
             "claves": plan, "aprobado_por": a.aprobado_por.strip(),
@@ -455,11 +521,19 @@ def main() -> None:
     ap.add_argument("--aplicar", action="store_true", help="con --subir o --restaurar-config: escribe de verdad; exige --aprobado-por")
     ap.add_argument("--aprobado-por", default="", help="nombre de la persona que aprobó el cambio")
     ap.add_argument("--sin-red", action="store_true", help="con --subir, simula sin conectar al servidor")
+    ap.add_argument("--solo-sal", action="store_true", help="con --subir: no pide contraseña; añade panel_sal solo si no existe y deja admin_password_hash como está")
+    ap.add_argument("--forzar", action="store_true", help="con --solo-sal: sustituye panel_sal aunque ya exista (el valor anterior queda en la copia previa)")
     ap.add_argument("--publicador", type=Path, default=PUBLICADOR, help=f"ruta de publicar-ftp.py (por defecto {PUBLICADOR})")
     a = ap.parse_args()
 
     if a.subir and a.restaurar_config:
         sys.exit("--subir y --restaurar-config son incompatibles.")
+    if a.solo_sal and not a.subir:
+        sys.exit("--solo-sal solo vale con --subir.")
+    if a.forzar and not a.solo_sal:
+        sys.exit("--forzar solo vale con --solo-sal.")
+    if a.solo_sal and a.bcrypt:
+        sys.exit("--solo-sal no genera hash: no se combina con --bcrypt.")
     remoto = a.subir or bool(a.restaurar_config)
     if (a.aplicar or a.sin_red) and not remoto:
         sys.exit("--aplicar y --sin-red solo valen con --subir o --restaurar-config.")
