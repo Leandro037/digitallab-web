@@ -1,0 +1,19 @@
+{
+  "nombre": "Ana Prueba",
+  "email": "ana@ejemplo.test",
+  "empresa": "Empresa Ficticia SL",
+  "pais": "España",
+  "tamano_equipo": "2-10",
+  "usa_claude_code": "si",
+  "necesidad": "Automatizar informes.\nY responder correos.",
+  "consent_respuesta": true,
+  "consent_novedades": true,
+  "consent_version": "34-2026-10-28",
+  "cta_origen": "hero",
+  "web": "",
+  "t": 3106,
+  "utm_source": "instagram",
+  "utm_medium": "social_paid",
+  "utm_campaign": "lanzamiento-beta",
+  "utm_content": "reel_01"
+}
