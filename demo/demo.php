@@ -117,15 +117,24 @@ function demo_procesar(array $server, string $cuerpo, array $cfg, int $ahora): a
 
     // 5. Campo trampa: respuesta de éxito, sin guardar nada (no se le enseña al robot qué falló)
     $trampa = $in['web'] ?? '';
-    if (!is_string($trampa) || trim($trampa) !== '') return [200, ['ok' => true], []];
+    if (!is_string($trampa) || trim($trampa) !== '') {
+        error_log('Digital Lab demo: descartado por campo trampa a las ' . gmdate('c', $ahora));
+        return [200, ['ok' => true], []];
+    }
 
     // 6. Tiempo desde que se abrió el formulario (ms medidos en el navegador)
     $t = $in['t'] ?? null;
     if (is_string($t) && preg_match('/^\d{1,10}$/D', $t)) $t = (int) $t;
     elseif (is_float($t) && is_finite($t) && $t >= 0 && $t < 1e10) $t = (int) $t;
     if (!is_int($t) || $t < 0) return demo_error('datos', 400);
-    if ($t < DEMO_T_MIN) return [200, ['ok' => true], []];
-    if ($t > DEMO_T_MAX) return demo_error('tiempo', 400);
+    if ($t < DEMO_T_MIN) {
+        error_log('Digital Lab demo: descartado por tiempo (demasiado rápido) a las ' . gmdate('c', $ahora));
+        return [200, ['ok' => true], []];
+    }
+    if ($t > DEMO_T_MAX) {
+        error_log('Digital Lab demo: descartado por tiempo (formulario caducado) a las ' . gmdate('c', $ahora));
+        return demo_error('tiempo', 400);
+    }
 
     // 7. Versión del consentimiento: solo las publicadas
     $version = $in['consent_version'] ?? '';
