@@ -129,6 +129,35 @@ ok(!ps_sesion_valida(['admin' => '1'] + $s, $AHORA) && !ps_sesion_valida(array_d
     'sin admin===1, sin token o vacía: no vale');
 ok(!ps_sesion_valida(['inicio' => $AHORA + 3600] + $s, $AHORA), 'inicio en el futuro: no vale');
 
+// H1 (tarea 51): solo las acciones del usuario renuevan los 30 min; el sondeo automático no
+$_COOKIE[PS_COOKIE] = $despues;
+$archivoSes = $e['dir'] . '/sesiones/sess_' . $despues;
+$s1 = ps_sesion_actual((string) $e['dir'], $AHORA + 600, false);
+ok(is_array($s1) && $s1['ultimo'] === $AHORA && str_contains((string) file_get_contents($archivoSes), 'ultimo|i:' . $AHORA . ';'),
+    'H1: una llamada automática (sin X-DL-Accion) no renueva «ultimo» ni reescribe la sesión');
+$s2 = ps_sesion_actual((string) $e['dir'], $AHORA + 1200, true);
+ok(is_array($s2) && $s2['ultimo'] === $AHORA + 1200 && str_contains((string) file_get_contents($archivoSes), 'ultimo|i:' . ($AHORA + 1200) . ';'),
+    'H1: una acción del usuario sí renueva «ultimo»');
+$vivas = 0;
+for ($i = 1; $i <= 31; $i++) {                        // sondeo cada 60 s con la pestaña abierta
+    if (ps_sesion_actual((string) $e['dir'], $AHORA + 1200 + 60 * $i, false) === null) break;
+    $vivas = $i;
+}
+ok($vivas === 29, 'H1: con el sondeo activo cada 60 s, la sesión caduca a los 30 min de la última acción del usuario', "sondeos con sesión: $vivas");
+ok(!is_file($archivoSes), 'H1: la sesión caducada se destruye');
+ok(ps_es_accion_usuario(['HTTP_X_DL_ACCION' => '1']) && !ps_es_accion_usuario([]) && !ps_es_accion_usuario(['HTTP_X_DL_ACCION' => 'true']) && !ps_es_accion_usuario(['HTTP_X_DL_ACCION' => ['1']]),
+    'H1: solo «X-DL-Accion: 1» cuenta como acción del usuario');
+$jsPanel = (string) file_get_contents("$RAIZ/panel/panel.js");
+ok(str_contains($jsPanel, "cargar(true); }, 60000)") && str_contains($jsPanel, "auto === true ? {} : { 'X-DL-Accion': '1' }"),
+    'H1: el sondeo de panel.js va sin X-DL-Accion; las demás cargas, con ella');
+ok(str_contains((string) file_get_contents("$RAIZ/panel/lib.php"), 'ps_sesion_actual((string) $e[\'dir\'], time(), ps_es_accion_usuario($_SERVER))')
+    && str_contains((string) file_get_contents("$RAIZ/panel/leads-api.php"), 'ps_es_accion_usuario($_SERVER)'),
+    'H1: api.php y leads-api.php solo renuevan con X-DL-Accion');
+$jsLeads = preg_replace('#/\*.*?\*/|//[^\n]*#s', '', (string) file_get_contents("$RAIZ/panel/leads.js"));
+ok(!preg_match('/setInterval|setTimeout\(\s*cargar/', $jsLeads) && substr_count($jsLeads, 'fetch(') === 2,
+    'H1: leads.js no sondea (sus dos fetch son acciones del usuario: api() y el CSV)');
+unset($_COOKIE[PS_COOKIE]);
+
 /* ================================================================== */
 titulo('R1 · Contraseña');
 ok(ps_hash_valido($HASH_REAL) && password_get_info($HASH_REAL)['algo'] === 'argon2id', 'argon2id (coste por defecto) se acepta');
@@ -240,6 +269,84 @@ ok(count(array_unique(array_map('json_encode', $resp))) === 1 && $resp[0] === $C
     'correo malo, contraseña mala, campo trampa, contraseña corta, JSON roto y tipos raros: misma respuesta 401 «credenciales»');
 
 /* ================================================================== */
+titulo('H2 (tarea 51) · El intento se reserva bajo flock antes de password_verify');
+$c = nuevo_panel();
+$ip = '198.51.100.70';
+$fv = fn() => json_decode((string) file_get_contents($c['dir'] . '/bloqueo/v-' . ps_visitante(srv($ip), $c) . '.json'), true);
+for ($i = 0; $i < 4; $i++) login($c, srv($ip), $AHORA + $i, EMAIL, 'mala-pero-larga-123');
+ok(login($c, srv($ip), $AHORA + 5)[0] === 200, 'el 5.º intento con la contraseña buena entra (su reserva no lo bloquea)');
+ok((int) ($fv()['hasta'] ?? 0) === 0 && $fv()['fallos'] === [] && (int) ($fv()['nivel'] ?? 0) === 0, 'al acertar se anula la reserva: sin bloqueo, sin fallos y sin subir de nivel', json_encode($fv()));
+$g = json_decode((string) file_get_contents($c['dir'] . '/bloqueo/global.json'), true);
+ok(count($g['fallos']) === 4 && (int) ($g['hasta'] ?? 0) === 0, 'el acierto no cuenta como fallo global', json_encode($g));
+$r = ps_reservar_intento($c['dir'], ps_visitante(srv('198.51.100.71'), $c), $AHORA);
+ok(is_array($r) && $r['estado'] === 'reservado' && $r['visitante'] === 0 && $r['global_nuevo'] === false, 'ps_reservar_intento anota el intento antes de comprobar nada');
+ok(json_decode((string) file_get_contents($c['dir'] . '/bloqueo/v-' . ps_visitante(srv('198.51.100.71'), $c) . '.json'), true)['fallos'] === [$AHORA], 'la reserva queda escrita en el contador del visitante');
+
+// Concurrencia real: N procesos PHP a la vez contra la misma carpeta (el hallazgo del 25: 20 de 20 verificados)
+$HIJO = "$BASE/hijo-login.php";
+file_put_contents($HIJO, <<<'PHP'
+<?php
+declare(strict_types=1);
+define('DL_DEMO_PRUEBAS', 1);
+define('DL_PANEL', 1);
+ini_set('error_log', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null');
+require $argv[1] . '/demo/demo.php';
+require $argv[1] . '/panel/seguridad.php';
+$d = json_decode((string) file_get_contents($argv[2]), true);
+$c = ps_config_desde($d['a'], $d['l'], $d['web']);
+$e = ps_estado($c, $d['server']);
+$cuerpo = (string) json_encode(['email' => $d['email'], 'password' => $d['pass'], 'web' => '']);
+while (!is_file($d['salida'])) usleep(1000);          // todos salen a la vez
+[$cod] = ps_login($d['server'], $cuerpo, $c, $e, (int) $d['ahora'], fn() => true, fn() => true, fn($ip) => 'ES');
+echo $cod;
+PHP);
+// Hash más lento que el de las demás pruebas, para que la ventana de carrera sea real
+$HASH_LENTO = password_hash(PASS, PASSWORD_ARGON2ID, ['memory_cost' => 16384, 'time_cost' => 6, 'threads' => 1]);
+function en_paralelo(array $servidores, array $a, string $pass): array
+{
+    global $BASE, $RAIZ, $COLA, $WEB, $AHORA, $HIJO;
+    $go = "$BASE/go-" . bin2hex(random_bytes(4));
+    $procs = [];
+    foreach ($servidores as $i => $sv) {
+        $f = "$BASE/datos-$i-" . bin2hex(random_bytes(4)) . '.json';
+        file_put_contents($f, json_encode(['a' => $a, 'l' => ['cola_dir' => $COLA], 'web' => $WEB, 'server' => $sv, 'email' => EMAIL, 'pass' => $pass, 'ahora' => $AHORA, 'salida' => $go]));
+        $p = proc_open([PHP_BINARY, $HIJO, $RAIZ, $f], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $tubos);
+        $procs[] = [$p, $tubos];
+    }
+    usleep(800000);                                    // que todos estén esperando
+    touch($go);
+    $codigos = [];
+    foreach ($procs as [$p, $tubos]) {
+        $codigos[] = trim((string) stream_get_contents($tubos[1]));
+        fclose($tubos[1]); fclose($tubos[2]);
+        proc_close($p);
+    }
+    return $codigos;
+}
+function lineas_registro(string $dir): array
+{
+    $t = implode('', array_map('file_get_contents', glob("$dir/registro/acceso-*.log") ?: []));
+    return array_map(fn($x) => json_decode($x, true), array_values(array_filter(explode("\n", $t))));
+}
+$dirC = "$COLA/pconc-" . bin2hex(random_bytes(4));
+$aConc = ['admin_email' => EMAIL, 'admin_password_hash' => $HASH_LENTO, 'panel_sal' => SAL, 'panel_dir' => $dirC, 'origenes' => ['https://dl-dev.com'], 'panel_aviso_para' => '', 'panel_aviso_de' => null];
+$cod = en_paralelo(array_fill(0, 20, srv('198.51.100.80')), $aConc, 'mala-pero-larga-123');
+$reg = array_filter(lineas_registro($dirC), fn($x) => $x['accion'] === 'login');
+$porR = array_count_values(array_column($reg, 'r'));
+ok(count($cod) === 20 && array_unique($cod) === ['401'], '20 intentos simultáneos de un visitante: todos 401', implode(',', $cod));
+ok(($porR['fallo'] ?? 0) === 4 && ($porR['bloqueado'] ?? 0) === 16, 'de 20 simultáneos solo 5 llegan a comprobar la contraseña (4 fallos + el que bloquea); 15 se cortan antes', json_encode($porR));
+$cConc = ps_config_desde($aConc, ['cola_dir' => $COLA], $WEB);
+$vC = json_decode((string) file_get_contents("$dirC/bloqueo/v-" . ps_visitante(srv('198.51.100.80'), $cConc) . '.json'), true);
+ok((int) $vC['nivel'] === 0 && (int) $vC['hasta'] === $AHORA + 900, 'un solo bloqueo de 15 min (sin subir de nivel por la carrera)', json_encode($vC));
+
+$dirG = "$COLA/pconcg-" . bin2hex(random_bytes(4));
+$cod = en_paralelo(array_map(fn($i) => srv("198.18.9.$i"), range(1, 36)), ['panel_dir' => $dirG] + $aConc, 'mala-pero-larga-123');
+$regG = lineas_registro($dirG);
+$porRG = array_count_values(array_map(fn($x) => $x['accion'] . ':' . $x['r'], $regG));
+ok(($porRG['login:fallo'] ?? 0) === 30 && ($porRG['login:bloqueado'] ?? 0) === 6 && ($porRG['bloqueo_global:bloqueado'] ?? 0) === 1,
+    '36 intentos simultáneos de IP distintas: 30 se comprueban, 6 se cortan y el bloqueo global salta una vez', json_encode($porRG));
+
+/* ================================================================== */
 titulo('R4 · Aviso de cada inicio de sesión');
 $c = nuevo_panel();
 $CORREOS = [];
@@ -319,7 +426,7 @@ foreach ([0 => [], 3600 => ['nombre' => 'Bruno Ficticio', 'pais' => '', 'utm_sou
     $lead = ['formato' => 1, 'id' => '', 'recibido' => $fecha] + $lead + ['consent_respuesta' => true, 'consent_novedades' => ($cambios + $base)['consent_novedades'], 'consent_version' => '34-2026-10-28', 'consent_fecha' => $fecha];
     demo_escribir_lead($COLA, $lead, $AHORA - 86400 * 2 + $dt);
 }
-$lista = leads_listar($COLA);
+$lista = leads_listar($COLA, $AHORA);
 ok(count($lista) === 3, 'lee los 3 leads de la cola', (string) count($lista));
 ok(array_column($lista, 'nombre') === ['Carla Ejemplo', 'Bruno Ficticio', 'Ana Prueba'], 'del más reciente al más antiguo');
 $ana = $lista[2];
@@ -347,7 +454,7 @@ file_put_contents("$COLA/lead-malicioso.json", json_encode(['id' => 'L-20261026-
 file_put_contents("$COLA/lead-20261026T000000Z-bbbbbbbbbbbbbbbb.json", json_encode(['id' => 'L-20261026-000000-cccccccccccccccc', 'recibido' => '2026-10-26T00:00:00Z']));
 file_put_contents("$COLA/lead-20261026T000001Z-dddddddddddddddd.json", str_repeat('x', 70000));
 file_put_contents("$COLA/lead-20261026T000002Z-eeeeeeeeeeeeeeee.json", '{"id":"L-20261026-000002-eeeeeeeeeeeeeeee","recibido":"ayer"}');
-ok(count(leads_listar($COLA)) === 3, 'nombre fuera de patrón, id que no coincide con el archivo, archivo enorme y fecha mala: ignorados');
+ok(count(leads_listar($COLA, $AHORA)) === 3, 'nombre fuera de patrón, id que no coincide con el archivo, archivo enorme y fecha mala: ignorados');
 $s = ['admin' => 1, 'inicio' => $AHORA, 'ultimo' => $AHORA, 'csrf' => str_repeat('f', 64)];
 $V = str_repeat('a', 32); $DIRP = "$COLA/papi"; mkdir($DIRP, 0700);
 $g = fn(array $q) => leads_api(['REQUEST_METHOD' => 'GET'], $q, '', $COLA, $DIRP, cfg_prueba(), $s, $V, $AHORA);
@@ -399,7 +506,7 @@ $malo = ['id' => 'L-20261025-100000-1111111111111111', 'recibido' => '2026-10-25
     'empresa' => '+SUM(1)', 'necesidad' => "-cmd\n=2", 'utm_source' => '-ig', 'utm_medium' => '+x', 'utm_campaign' => '=c', 'utm_content' => '@c', 'consent_respuesta' => true,
     'consent_version' => '34-2026-10-28', 'consent_fecha' => '2026-10-25T10:00:00Z', 'pais' => 'Chile'];
 file_put_contents("$COLA/lead-20261025T100000Z-1111111111111111.json", json_encode($malo));
-$csv = leads_csv(leads_listar($COLA), atendidos_leer($COLA));
+$csv = leads_csv(leads_listar($COLA, $AHORA), atendidos_leer($COLA));
 ok(str_starts_with($csv, "\xEF\xBB\xBF\"id\";\"recibido\""), 'CSV con BOM y cabecera entre comillas');
 ok(str_contains($csv, '"\'=HYPERLINK(""http://evil.test"",""x"")"') && str_contains($csv, '"\'+SUM(1)"') && str_contains($csv, "\"'-cmd\n=2\""), 'nombre, empresa y necesidad neutralizados');
 $filaMala = '';
@@ -417,6 +524,44 @@ ok(leads_csv_procesar(srv('203.0.113.5', ['REQUEST_METHOD' => 'GET']), [], $COLA
 ok(leads_csv_procesar(srv(), ['csrf' => 'x'], $COLA, $DIRP, cfg_prueba(), $s2, $V, $AHORA)[0] === 403, 'CSV con token malo → 403');
 $sinO = srv(); unset($sinO['HTTP_ORIGIN']);
 ok(leads_csv_procesar($sinO, ['csrf' => $s2['csrf']], $COLA, $DIRP, cfg_prueba(), $s2, $V, $AHORA)[0] === 403, 'CSV sin Origin → 403');
+
+/* ================================================================== */
+titulo('Detalle 2 del 16 (tarea 52) · Leads caducados y purga diaria (Cron)');
+define('DL_PURGA_PRUEBAS', 1);
+require "$RAIZ/inc/purgar.php";
+$C2 = "$BASE/cola-purga";
+mkdir($C2, 0700);
+$escribe = function (int $t, string $nombre) use ($C2, $base): void {
+    [$lead] = demo_validar(['nombre' => $nombre] + $base);
+    $f = gmdate('Y-m-d\TH:i:s\Z', $t);
+    $lead = ['formato' => 1, 'id' => '', 'recibido' => $f] + $lead + ['consent_respuesta' => true, 'consent_novedades' => false, 'consent_version' => '34-2026-10-28', 'consent_fecha' => $f];
+    demo_escribir_lead($C2, $lead, $t);
+};
+$escribe($AHORA - 30 * 86400 - 60, 'Lead Caducado');                  // 30 días y 1 minuto (el caso del 16)
+$escribe($AHORA - 30 * 86400, 'Lead Justo');                          // 30 días exactos: ya caducado
+$escribe($AHORA - 30 * 86400 + 3600, 'Lead Caduca Hoy');              // le queda 1 hora
+$escribe($AHORA - 86400, 'Lead Nuevo');
+$l2 = leads_listar($C2, $AHORA);
+ok(array_column($l2, 'nombre') === ['Lead Nuevo', 'Lead Caduca Hoy'], 'un lead con 30 días o más no se muestra aunque siga en el disco', implode(', ', array_column($l2, 'nombre')));
+$todos = [];
+foreach (glob("$C2/lead-*.json") as $fl) { $j = json_decode((string) file_get_contents($fl), true); $todos[$j['nombre']] = $j['id']; }
+[$cod] = leads_api(['REQUEST_METHOD' => 'GET'], ['id' => $todos['Lead Caducado']], '', $C2, $DIRP, cfg_prueba(), $s, $V, $AHORA);
+ok($cod === 404, 'la ficha de un lead caducado da 404');
+$csvC = leads_csv(leads_listar($C2, $AHORA), []);
+ok(!str_contains($csvC, 'Lead Caducado') && !str_contains($csvC, 'Lead Justo') && str_contains($csvC, 'Lead Caduca Hoy'), 'el CSV no lleva leads caducados');
+file_put_contents("$C2/atendidos.json", json_encode([$todos['Lead Caducado'] => '2026-09-30T00:00:00Z', $todos['Lead Nuevo'] => '2026-10-26T00:00:00Z']));
+$P2 = "$BASE/panel-purga";
+mkdir("$P2/registro", 0700, true);
+touch("$P2/registro/acceso-" . gmdate('Ymd', $AHORA - 91 * 86400) . '.log');
+$rp = purga_todo($C2, $P2, $AHORA);
+// demo_purgar borra con más de 30 días (el de 30 exactos cae en la purga siguiente; ya no se muestra)
+ok($rp['leads_borrados'] === 1 && $rp['leads_quedan'] === 3 && count(glob("$C2/lead-*.json")) === 3, 'la purga diaria borra el lead de 30 días y 1 minuto sin esperar a una visita', json_encode($rp));
+ok($rp['atendidos_quitados'] === 1 && array_keys(atendidos_leer($C2)) === [$todos['Lead Nuevo']], 'quita de atendidos.json la marca del lead borrado');
+ok(glob("$P2/registro/acceso-*.log") === [], 'también purga el registro de accesos del panel (> 90 días)');
+ok(purga_todo(null, null, $AHORA) === ['cola' => false, 'panel' => false, 'leads_borrados' => 0, 'leads_quedan' => 0, 'atendidos_quitados' => 0], 'sin cola ni panel: no toca nada');
+$srcP = (string) file_get_contents("$RAIZ/inc/purgar.php");
+ok(preg_match("/declare\(strict_types=1\);\s+if \(PHP_SAPI !== 'cli'\) \{ http_response_code\(404\); exit; \}/", $srcP) === 1, 'inc/purgar.php solo corre por línea de comandos (por la web, 404)');
+ok(!preg_match('/echo[^;]*\$(l|lead)\[/', $srcP), 'la salida del Cron solo lleva recuentos, nunca datos de leads');
 
 /* ================================================================== */
 titulo('R7 · Salida segura en el navegador');

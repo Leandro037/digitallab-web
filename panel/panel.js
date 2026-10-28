@@ -19,10 +19,12 @@
     $('desde').value = ymd(d); $('hasta').value = ymd(h);
   }
 
-  function cargar() {
+  // auto = true en el sondeo de cada 60 s: sin la cabecera X-DL-Accion el servidor NO renueva los 30 min de
+  // inactividad (R3, H1 de la tarea 51). Las acciones del usuario (cargar la página, filtros, «Actualizar») sí.
+  function cargar(auto) {
     var q = new URLSearchParams({ desde: $('desde').value, hasta: $('hasta').value });
     Object.keys(filtros).forEach(function (k) { if (filtros[k]) q.set(k, filtros[k]); });
-    fetch('api.php?' + q, { credentials: 'same-origin' }).then(function (r) {
+    fetch('api.php?' + q, { credentials: 'same-origin', headers: auto === true ? {} : { 'X-DL-Accion': '1' } }).then(function (r) {
       if (r.status === 401) { location.replace('/login/'); throw 0; }
       return r.json();
     }).then(function (d) { if (!d.ok) throw 1; ultimo = d; pinta(d); }).catch(function (e) {
@@ -147,7 +149,7 @@
     fijaRango(rango); cargar();
   });
   ['desde', 'hasta'].forEach(function (id) { $(id).addEventListener('change', function () { $('rangos').querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); }); cargar(); }); });
-  $('actualizar').onclick = cargar;
+  $('actualizar').onclick = function () { cargar(); };
   fijaRango('7'); cargar();
-  setInterval(function () { if (document.visibilityState === 'visible') cargar(); }, 60000);
+  setInterval(function () { if (document.visibilityState === 'visible') cargar(true); }, 60000);
 })();

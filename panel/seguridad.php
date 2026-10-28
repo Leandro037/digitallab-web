@@ -262,53 +262,79 @@ function ps_con_contadores(string $dir, string $v, callable $fn): mixed
     }
 }
 
-/** @return 'libre'|'bloqueado'|null  (null = sin contador) */
-function ps_bloqueo_estado(string $dir, string $v, int $ahora): ?string
+/**
+ * Suma un fallo a los contadores (función pura). visitante = segundos de bloqueo puestos ahora (0 = ninguno).
+ * @return array{0:array, 1:array, 2:array{visitante:int, global_nuevo:bool}}
+ */
+function ps_sumar_fallo(array $g, array $vis, int $ahora): array
+{
+    $reciente = static fn(array $x, int $ventana): array => array_values(array_filter($x, static fn($t) => is_int($t) && $t > $ahora - $ventana && $t <= $ahora));
+
+    $vf = $reciente((array) ($vis['fallos'] ?? []), PS_VENTANA_VISITANTE);
+    $vf[] = $ahora;
+    $puesto = 0;
+    if (count($vf) >= PS_FALLOS_VISITANTE) {
+        // Duplica si el bloqueo anterior terminó hace menos de 24 h; si no, vuelve a 15 min
+        $finAnterior = (int) ($vis['hasta'] ?? 0);
+        $nivel = $finAnterior > 0 && $ahora - $finAnterior < PS_BLOQUEO_MAX ? min(7, (int) ($vis['nivel'] ?? 0) + 1) : 0;
+        $puesto = min(PS_BLOQUEO_BASE << $nivel, PS_BLOQUEO_MAX);
+        $vis = ['fallos' => [], 'nivel' => $nivel, 'hasta' => $ahora + $puesto];
+    } else {
+        $vis['fallos'] = $vf;
+    }
+
+    $gf = $reciente((array) ($g['fallos'] ?? []), PS_VENTANA_GLOBAL);
+    $gf[] = $ahora;
+    $nuevo = false;
+    if (count($gf) >= PS_FALLOS_GLOBAL) {
+        $g = ['fallos' => [], 'hasta' => $ahora + PS_BLOQUEO_GLOBAL];
+        $nuevo = true;
+    } else {
+        $g['fallos'] = $gf;
+    }
+    return [$g, $vis, ['visitante' => $puesto, 'global_nuevo' => $nuevo]];
+}
+
+/**
+ * R2 (H2 de la tarea 51): en UNA sola sección bajo flock se mira el bloqueo y, si está libre, se anota el
+ * intento como fallo ANTES de comprobar la contraseña. Así N peticiones simultáneas no pueden pasar todas
+ * el control: como mucho se comprueban 5 por visitante (y 30 en total) antes de que salte el bloqueo.
+ * Si la contraseña resulta correcta, ps_anular_reserva() deshace la anotación.
+ * @return array{estado:string, visitante?:int, global_nuevo?:bool, previo?:array}|null  null = sin contador
+ */
+function ps_reservar_intento(string $dir, string $v, int $ahora): ?array
 {
     return ps_con_contadores($dir, $v, static function (array $g, array $vis) use ($ahora): array {
-        $bloq = (int) ($g['hasta'] ?? 0) > $ahora || (int) ($vis['hasta'] ?? 0) > $ahora;
-        return [null, null, $bloq ? 'bloqueado' : 'libre'];
+        if ((int) ($g['hasta'] ?? 0) > $ahora || (int) ($vis['hasta'] ?? 0) > $ahora) {
+            return [null, null, ['estado' => 'bloqueado']];
+        }
+        [$g2, $vis2, $r] = ps_sumar_fallo($g, $vis, $ahora);
+        return [$g2, $vis2, ['estado' => 'reservado'] + $r + ['previo' => ['g' => $g, 'vis' => $vis]]];
     });
 }
 
-/** @return array{visitante:int, global_nuevo:bool}|null  visitante = segundos de bloqueo puestos ahora (0 = ninguno) */
-function ps_registrar_fallo(string $dir, string $v, int $ahora): ?array
+/**
+ * Login correcto: se olvidan los fallos sueltos del visitante (el nivel de bloqueo se conserva 24 h) y el
+ * intento reservado deja de contar. Si fue ESTA reserva la que puso un bloqueo (de visitante o global), se
+ * quita y se vuelve al estado anterior; un bloqueo puesto entretanto por otra petición se respeta.
+ */
+function ps_anular_reserva(string $dir, string $v, int $ahora, array $r): bool
 {
-    return ps_con_contadores($dir, $v, static function (array $g, array $vis) use ($ahora): array {
-        $reciente = static fn(array $x, int $ventana): array => array_values(array_filter($x, static fn($t) => is_int($t) && $t > $ahora - $ventana && $t <= $ahora));
-
-        $vf = $reciente((array) ($vis['fallos'] ?? []), PS_VENTANA_VISITANTE);
-        $vf[] = $ahora;
-        $puesto = 0;
-        if (count($vf) >= PS_FALLOS_VISITANTE) {
-            // Duplica si el bloqueo anterior terminó hace menos de 24 h; si no, vuelve a 15 min
-            $finAnterior = (int) ($vis['hasta'] ?? 0);
-            $nivel = $finAnterior > 0 && $ahora - $finAnterior < PS_BLOQUEO_MAX ? min(7, (int) ($vis['nivel'] ?? 0) + 1) : 0;
-            $puesto = min(PS_BLOQUEO_BASE << $nivel, PS_BLOQUEO_MAX);
-            $vis = ['fallos' => [], 'nivel' => $nivel, 'hasta' => $ahora + $puesto];
-        } else {
-            $vis['fallos'] = $vf;
-        }
-
-        $gf = $reciente((array) ($g['fallos'] ?? []), PS_VENTANA_GLOBAL);
-        $gf[] = $ahora;
-        $nuevo = false;
-        if (count($gf) >= PS_FALLOS_GLOBAL) {
-            $g = ['fallos' => [], 'hasta' => $ahora + PS_BLOQUEO_GLOBAL];
-            $nuevo = true;
-        } else {
-            $g['fallos'] = $gf;
-        }
-        return [$g, $vis, ['visitante' => $puesto, 'global_nuevo' => $nuevo]];
-    });
-}
-
-// Login correcto: se olvidan los fallos sueltos del visitante (el nivel de bloqueo se conserva 24 h)
-function ps_fallos_a_cero(string $dir, string $v): void
-{
-    ps_con_contadores($dir, $v, static function (array $g, array $vis): array {
+    return (bool) ps_con_contadores($dir, $v, static function (array $g, array $vis) use ($ahora, $r): array {
         $vis['fallos'] = [];
-        return [null, $vis, true];
+        if (($r['visitante'] ?? 0) > 0 && (int) ($vis['hasta'] ?? 0) === $ahora + $r['visitante']) {
+            $antes = (array) ($r['previo']['vis'] ?? []);
+            $vis['nivel'] = (int) ($antes['nivel'] ?? 0);
+            $vis['hasta'] = (int) ($antes['hasta'] ?? 0);
+        }
+        if (($r['global_nuevo'] ?? false) && (int) ($g['hasta'] ?? 0) === $ahora + PS_BLOQUEO_GLOBAL) {
+            $g = (array) ($r['previo']['g'] ?? []);
+        } else {
+            $f = array_values((array) ($g['fallos'] ?? []));
+            $i = array_search($ahora, $f, true);
+            if ($i !== false) { array_splice($f, (int) $i, 1); $g['fallos'] = $f; }
+        }
+        return [$g, $vis, true];
     });
 }
 
@@ -413,10 +439,11 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
     $v = ps_visitante($server, $c);
     ps_purgar($dir, $ahora);
 
-    // R2: bloqueado (por visitante o global) o sin contador → no se comprueba nada
-    $bloqueo = ps_bloqueo_estado($dir, $v, $ahora);
-    if ($bloqueo === null) { error_log('Digital Lab panel: sin contador de intentos'); return [503, ['ok' => false, 'error' => 'sin_servicio']]; }
-    if ($bloqueo === 'bloqueado') {
+    // R2: el intento se reserva (cuenta como fallo) bajo flock ANTES de comprobar nada. Bloqueado (por
+    // visitante o global) o sin contador → no se comprueba la contraseña.
+    $reserva = ps_reservar_intento($dir, $v, $ahora);
+    if ($reserva === null) { error_log('Digital Lab panel: sin contador de intentos'); return [503, ['ok' => false, 'error' => 'sin_servicio']]; }
+    if ($reserva['estado'] === 'bloqueado') {
         password_verify(bin2hex(random_bytes(8)), $c['hash']);          // mismo tiempo que un intento normal
         ps_registrar($dir, 'login', '', $v, 'bloqueado', $ahora);
         return $mal;
@@ -435,18 +462,17 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
 
     $ip = demo_ip($server, $c);
     if (!$ok) {
-        $r = ps_registrar_fallo($dir, $v, $ahora);
-        if ($r === null) return [503, ['ok' => false, 'error' => 'sin_servicio']];
-        ps_registrar($dir, 'login', '', $v, $r['visitante'] > 0 ? 'bloqueado' : 'fallo', $ahora);
-        if ($r['global_nuevo']) {
+        // El fallo ya quedó anotado en la reserva
+        ps_registrar($dir, 'login', '', $v, $reserva['visitante'] > 0 ? 'bloqueado' : 'fallo', $ahora);
+        if ($reserva['global_nuevo']) {
             ps_registrar($dir, 'bloqueo_global', '', $v, 'bloqueado', $ahora);
             ps_avisar($c, 'bloqueo_global', $v, $pais ? (string) $pais($ip) : '??', $ahora, $enviar);
         }
         return $mal;
     }
 
+    if (!ps_anular_reserva($dir, $v, $ahora, $reserva)) error_log('Digital Lab panel: no se pudo anular la reserva del intento');
     if (!$abrirSesion()) return [503, ['ok' => false, 'error' => 'sin_servicio']];
-    ps_fallos_a_cero($dir, $v);
     ps_registrar($dir, 'login', '', $v, 'ok', $ahora);
     ps_avisar($c, 'login', $v, $pais ? (string) $pais($ip) : '??', $ahora, $enviar);
     return [200, ['ok' => true, 'url' => '/panel/leads.php']];
@@ -496,8 +522,13 @@ function ps_sesion_nueva(string $dir, int $ahora): bool
     return true;
 }
 
-/** (HTTP) Sesión válida → sus datos (y anota la actividad); si no, null. */
-function ps_sesion_actual(string $dir, int $ahora): ?array
+/**
+ * (HTTP) Sesión válida → sus datos; si no, null.
+ * $renovar: anota la actividad (R3, 30 min de inactividad). Solo para acciones del usuario: navegar a una
+ * página, filtrar, abrir una ficha, marcar, descargar. Las llamadas automáticas (el sondeo de las
+ * estadísticas cada 60 s) NO renuevan (H1 de la tarea 51): con la pestaña olvidada la sesión caduca a los 30 min.
+ */
+function ps_sesion_actual(string $dir, int $ahora, bool $renovar = true): ?array
 {
     if (!isset($_COOKIE[PS_COOKIE]) || !is_string($_COOKIE[PS_COOKIE])) return null;
     if (!ps_sesion_abrir($dir)) return null;
@@ -507,10 +538,25 @@ function ps_sesion_actual(string $dir, int $ahora): ?array
         ps_borrar_cookie();
         return null;
     }
+    if (!$renovar) {
+        $s = $_SESSION;
+        session_abort();                    // sin escribir: ni «ultimo» ni la fecha del archivo de sesión cambian
+        return $s;
+    }
     $_SESSION['ultimo'] = $ahora;
     $s = $_SESSION;
     session_write_close();
     return $s;
+}
+
+/**
+ * H1: las peticiones fetch del panel declaran si las pidió el usuario con «X-DL-Accion: 1». Sin la cabecera
+ * (sondeo automático, o cualquier llamada futura que no la ponga) la sesión no se renueva: falla hacia el lado
+ * seguro. Una cabecera propia no se puede mandar desde otro sitio sin CORS (y además hace falta la cookie).
+ */
+function ps_es_accion_usuario(array $server): bool
+{
+    return ($server['HTTP_X_DL_ACCION'] ?? '') === '1';
 }
 
 // (HTTP)

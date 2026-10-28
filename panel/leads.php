@@ -165,6 +165,6 @@ header('Content-Type: text/html; charset=utf-8');
 </main>
 
 <footer class="pie"><p>Herramienta interna de un solo usuario · horas en UTC.</p></footer>
-<script src="leads.js?v=20261028a"></script>
+<script src="leads.js?v=20261028b"></script>
 </body>
 </html>

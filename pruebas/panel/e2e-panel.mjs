@@ -9,6 +9,8 @@
 // - Cubre: redirección sin sesión, login malo/bueno, cookie __Host-, cabeceras R5 en HTML/JSON/CSV/401, lista, KPIs,
 //   búsqueda, filtros, «sin resultados», ficha, atendido y «volver a nuevo» (persisten), CSV (fórmulas neutralizadas),
 //   CSRF/Origin, XSS en datos del lead, móvil (ficha a pantalla completa y «Volver»), estado vacío, salir y bloqueo.
+//   Tarea 51: inactividad de 30 min con el sondeo de las estadísticas activo (tiempo simulado: reloj del navegador
+//   con clock.runFor y sesión del servidor envejecida 60 s por minuto), lead de más de 30 días oculto y purga por Cron.
 // - Si DL_CAPTURAS está definido, guarda allí panel-leads-*.png (escritorio 1440 y móvil 390, sin scroll horizontal).
 // Sale con 0 si todo pasa y 1 si algo falla.
 import fs from 'node:fs';
@@ -37,7 +39,7 @@ const COLA = path.join(BASE, 'dl-leads');
 fs.mkdirSync(WEB); fs.mkdirSync(COLA);
 const copiar = (rel, filtro) => fs.cpSync(path.join(RAIZ, rel), path.join(WEB, rel), { recursive: true, filter: filtro });
 copiar('panel', (s) => !/[\\/]datos[\\/].+\.(bin|sqlite|json|txt)$/.test(s));
-for (const r of ['login', 'inc', 'fonts', 'favicon.svg', 'favicon.ico', 'styles.css', 'auditoria/api/lib.php']) copiar(r);
+for (const r of ['login', 'inc', 'fonts', 'favicon.svg', 'favicon.ico', 'styles.css', 'auditoria/api/lib.php', 'demo/demo.php']) copiar(r);
 
 const libre = () => new Promise((r) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
 const PUERTO = await libre();
@@ -76,6 +78,9 @@ const escribirLead = (l) => {
   return { id, f };
 };
 const ESCRITOS = LEADS.map(escribirLead);
+// Detalle 2 del 16: un lead de hace 31 días que la purga aún no ha borrado (con la fecha de archivo que pone demo.php)
+const CADUCADO = escribirLead({ d: 31, h: '10:00', nombre: 'Lead Caducado', email: 'viejo@caducado.example', empresa: 'Caducada SA', pais: 'Chile', tamano_equipo: '1', usa_claude_code: 'no', cta_origen: 'final', necesidad: 'Viejo.' });
+{ const t = new Date(hoy.getTime() - 31 * 86400000 + 36000000); fs.utimesSync(CADUCADO.f, t, t); }
 fs.writeFileSync(path.join(COLA, 'atendidos.json'), JSON.stringify(atendidos, null, 4));
 const ID_TOMAS = ESCRITOS[1].id;
 
@@ -142,6 +147,7 @@ try {
   ok(r.status() === 200 && R5(r.headers()) && /style-src 'self'(;|$)/.test(r.headers()['content-security-policy']), 'página Leads: cabeceras R5 y CSP sin estilos en línea');
   await pag.waitForSelector('#filas a.fila');
   ok(await pag.locator('#filas a.fila').count() === 6, '6 leads en la lista');
+  ok(await pag.locator(`#filas a.fila[data-id="${CADUCADO.id}"]`).count() === 0 && fs.existsSync(CADUCADO.f), 'un lead de más de 30 días no se muestra aunque la purga aún no lo haya borrado');
   ok((await pag.textContent('#kTotal')) === '6' && (await pag.textContent('#kNuevos')) === '4' && (await pag.textContent('#kAtendidos')) === '2', 'contadores 6 / 4 nuevos / 2 atendidos');
   ok((await pag.textContent('#kTotalSub')).startsWith('desde el ') && /^dentro de \d+ días$/.test(await pag.textContent('#kCadSub')), 'subtítulos de los contadores');
   ok((await pag.textContent('#cuenta')) === 'Mostrando 6 de 6 leads · del más reciente al más antiguo', 'cuenta de resultados');
@@ -265,6 +271,57 @@ try {
   ok(errores.length === 0, 'sin errores de JavaScript ni de consola (escritorio)', errores.join(' | '));
   await ctx.close();
 
+  /* ================= H1 (tarea 51): inactividad con la pestaña abierta y el sondeo activo ================= */
+  // Tiempo simulado: el reloj del navegador lo mueve Playwright (clock.runFor dispara el sondeo de 60 s) y el
+  // del servidor se simula envejeciendo la sesión 60 s por minuto («inicio» y «ultimo» del archivo de sesión).
+  console.log('\nInactividad de 30 min con el sondeo activo (H1)');
+  const so = await contexto('escritorio');
+  await entrar(so.pag);
+  await so.pag.waitForURL('**/panel/leads.php');
+  const idSes = (await so.ctx.cookies()).find((c) => c.name === '__Host-dlpanel').value;
+  const fSes = path.join(COLA, 'panel', 'sesiones', 'sess_' + idSes);
+  const envejecer = (s) => fs.writeFileSync(fSes, fs.readFileSync(fSes, 'utf8').replace(/(inicio|ultimo)\|i:(\d+);/g, (m, k, n) => `${k}|i:${Number(n) - s};`));
+  const ultimo = () => Number(/ultimo\|i:(\d+);/.exec(fs.readFileSync(fSes, 'utf8'))[1]);
+
+  // Leads: no sondea (10 min sin tocar nada → ninguna petición a la API)
+  await so.pag.clock.install();
+  await so.pag.reload();
+  await so.pag.waitForSelector('#filas a.fila');
+  let llamadasLeads = 0;
+  const cuentaLeads = (x) => { if (x.url().includes('/panel/leads-api.php')) llamadasLeads++; };
+  so.pag.on('request', cuentaLeads);
+  await so.pag.clock.runFor(600000);
+  so.pag.off('request', cuentaLeads);
+  ok(llamadasLeads === 0, 'Leads abierto 10 min sin tocar nada: ninguna llamada automática a la API', String(llamadasLeads));
+
+  // Estadísticas: sondeo de api.php cada 60 s
+  const apiResp = (accion) => so.pag.waitForResponse((x) => x.url().includes('/panel/api.php'), { timeout: 10000 })
+    .then(async (x) => ({ st: x.status(), cab: (await x.request().allHeaders())['x-dl-accion'] || '' }));
+  const primera = apiResp();
+  await so.pag.goto(ORIGEN + '/panel/');
+  const p0 = await primera;
+  ok(p0.st !== 401 && p0.cab === '1', 'al abrir Estadísticas, la carga inicial es una acción del usuario (X-DL-Accion: 1)', JSON.stringify(p0));
+  const sondeo = async () => { envejecer(60); const r = apiResp(); await so.pag.clock.runFor(60000); return r; };
+  const fase1 = [];
+  for (let i = 0; i < 20; i++) fase1.push(await sondeo());
+  ok(fase1.every((x) => x.st !== 401 && x.cab === ''), '20 sondeos automáticos (20 min): sin X-DL-Accion y la sesión sigue', JSON.stringify(fase1.slice(-2)));
+  const antesAccion = ultimo();
+  const accion = apiResp();
+  await so.pag.click('#actualizar');
+  const pa = await accion;
+  ok(pa.st !== 401 && pa.cab === '1' && ultimo() > antesAccion + 1000, '«Actualizar» (acción del usuario) renueva la inactividad', JSON.stringify(pa));
+  const fase2 = [];
+  for (let i = 0; i < 29; i++) fase2.push(await sondeo());
+  ok(fase2.every((x) => x.st !== 401 && x.cab === ''), '29 sondeos más (29 min desde la última acción): la sesión sigue', JSON.stringify(fase2.slice(-1)));
+  const login = so.pag.waitForURL('**/login/', { timeout: 10000 });
+  const p30 = await sondeo();
+  await login;
+  ok(p30.st === 401 && new URL(so.pag.url()).pathname === '/login/', 'con la pestaña abierta y el sondeo activo, la sesión caduca a los 30 min de la última acción y vuelve al login', JSON.stringify(p30));
+  ok(!fs.existsSync(fSes), 'la sesión caducada se borra del servidor');
+  const trasCaducar = await so.ctx.request.get(ORIGEN + '/panel/leads-api.php', { headers: { 'X-DL-Accion': '1', Cookie: '__Host-dlpanel=' + idSes } });
+  ok(trasCaducar.status() === 401, 'tras caducar, ni una acción del usuario la revive (401)');
+  await so.ctx.close();
+
   /* ================= móvil ================= */
   console.log('\nMóvil (390)');
   ({ ctx, pag, errores } = await contexto('movil'));
@@ -334,6 +391,14 @@ try {
   const tras = await intento(PASS);
   ok(tras.status() === 401 && (await tras.json()).error === 'credenciales', 'tras 5 fallos, la contraseña buena recibe «credenciales» (bloqueo de 15 min)');
   await bl.ctx.close();
+
+  // Purga diaria por Cron (detalle 2 del 16): por la web no corre; por línea de comandos borra lo caducado
+  const webPurga = await fetch(ORIGEN + '/inc/purgar.php');
+  ok(webPurga.status === 404 && fs.existsSync(CADUCADO.f), 'inc/purgar.php por la web: 404 y no purga nada');
+  const salidaPurga = execFileSync(PHP, ['-d', 'display_errors=0', '-d', 'log_errors=1', '-d', `error_log=${LOG_PHP}`, path.join(WEB, 'inc', 'purgar.php')]).toString();
+  ok(!fs.existsSync(CADUCADO.f) && ESCRITOS.every((x) => fs.existsSync(x.f)) && /purga: 1 leads borrados, 6 quedan/.test(salidaPurga) && /panel: purgado/.test(salidaPurga),
+    'el Cron (php inc/purgar.php) borra el lead de 31 días sin esperar a una visita y deja los demás', salidaPurga.trim());
+  ok(!/Caducado|caducado\.example|Tomás|lumbre/.test(salidaPurga), 'la salida del Cron solo lleva recuentos');
 
   const log = fs.existsSync(LOG_PHP) ? fs.readFileSync(LOG_PHP, 'utf8') : '';
   const raros = log.split('\n').filter((l) => /PHP (Warning|Notice|Deprecated|Fatal|Parse)/.test(l));

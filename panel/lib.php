@@ -20,10 +20,12 @@ const PANEL_VERSION_DB = 1;
 /* 8 h máximo, sesiones fuera de public_html, cookie __Host-)           */
 /* ------------------------------------------------------------------ */
 
+// H1 (tarea 51): api.php solo renueva la inactividad si la petición la pidió el usuario (X-DL-Accion: 1);
+// el sondeo automático de panel.js cada 60 s no la renueva
 function panel_autorizado(): bool
 {
     $e = ps_estado(ps_config(), $_SERVER);
-    return $e['login'] && ps_sesion_actual((string) $e['dir'], time()) !== null;
+    return $e['login'] && ps_sesion_actual((string) $e['dir'], time(), ps_es_accion_usuario($_SERVER)) !== null;
 }
 
 function panel_exigir(): void

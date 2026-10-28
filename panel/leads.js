@@ -6,14 +6,14 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
   var MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  var CC = { si: 'Sí', no: 'No', nose: 'No sé' };
-  var CTA = { nav: 'Menú', hero: 'Inicio', precio: 'Precio', final: 'Final de la página' };
+  var CC = Object.assign(Object.create(null), { si: 'Sí', no: 'No', nose: 'No sé' });
+  var CTA = Object.assign(Object.create(null), { nav: 'Menú', hero: 'Inicio', precio: 'Precio', final: 'Final de la página' });
   var RE_ID = /^L-\d{8}-\d{6}-[a-f0-9]{16}$/;
   var RE_CORREO = /^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,63}$/;
   var DIA = 86400000, PLAZO = 30;
   var escritorio = window.matchMedia('(min-width: 901px)');
 
-  var leads = [], ahora = new Date(), sel = null, fichaLead = null, cache = {}, abierta = false, pedido = 0;
+  var leads = [], ahora = new Date(), sel = null, fichaLead = null, cache = Object.create(null), abierta = false, pedido = 0;
 
   /* ---------- utilidades ---------- */
   function el(tag, cls, texto) {
@@ -38,9 +38,14 @@
 
   function aviso(t) { var a = $('error'); a.textContent = t || ''; a.hidden = !t; }
 
+  // Esta página no sondea: toda llamada sale de una acción del usuario (cargar, abrir ficha, marcar) y lleva
+  // «X-DL-Accion: 1», que renueva los 30 min de inactividad (R3). Una llamada automática futura NO debe
+  // llevarla (H1 de la tarea 51): sin ella el servidor no renueva.
   function api(url, opciones) {
+    opciones = opciones || {};
+    var cab = Object.assign({ Accept: 'application/json', 'X-DL-Accion': '1' }, opciones.headers || {});
     // referrerPolicy same-origin: con no-referrer (R5) un POST podría salir con «Origin: null» y el servidor lo rechaza (R6)
-    return fetch(url, Object.assign({ credentials: 'same-origin', referrerPolicy: 'same-origin', headers: { Accept: 'application/json' } }, opciones || {})).then(function (r) {
+    return fetch(url, Object.assign({ credentials: 'same-origin', referrerPolicy: 'same-origin' }, opciones, { headers: cab })).then(function (r) {
       if (r.status === 401) { location.replace('/login/'); throw new Error('sin_sesion'); }
       return r.json().then(function (d) { if (!r.ok || !d || !d.ok) throw new Error((d && d.error) || 'error'); return d; });
     });
@@ -93,7 +98,8 @@
   }
 
   function opcionesFiltros() {
-    var paises = {}, sinPais = false, origenes = {}, directo = false;
+    // Object.create(null) (H3 de la tarea 51): un utm_campaign «__proto__» o «constructor» es una clave más
+    var paises = Object.create(null), sinPais = false, origenes = Object.create(null), directo = false;
     leads.forEach(function (l) {
       if (l.pais) paises[l.pais] = 1; else sinPais = true;
       var o = origen(l); if (o === 'directo') directo = true; else origenes[o] = 1;
@@ -290,7 +296,7 @@
     $('fAccionTxt').textContent = 'Guardando…';
     api('leads-api.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ accion: 'atendido', id: l.id, atendido: quiere, csrf: $('csrf').value })
     }).then(function (d) {
       aviso('');

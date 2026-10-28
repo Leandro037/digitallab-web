@@ -394,7 +394,7 @@ function demo_escribir_lead(string $cola, array $lead, int $ahora): bool
 }
 
 // Purga acotada: como mucho una vez cada DEMO_PURGA_CADA segundos (mtime de limites/purga). Sin tráfico
-// no purga; el Cron de la tarea 14 lo cubre. Devuelve true si ha purgado.
+// no purga; lo cubre el Cron diario de inc/purgar.php (tarea 51). Devuelve true si ha purgado.
 function demo_purgar_si_toca(string $cola, string $limites, int $ahora): bool
 {
     $marca = "$limites/purga";
@@ -454,4 +454,5 @@ function demo_main(): never
     exit;
 }
 
-if (!defined('DL_DEMO_PRUEBAS')) demo_main();
+// DL_DEMO_PRUEBAS: pruebas. DL_DEMO_LIBRERIA: inc/purgar.php (Cron diario) usa las funciones sin atender petición.
+if (!defined('DL_DEMO_PRUEBAS') && !defined('DL_DEMO_LIBRERIA')) demo_main();

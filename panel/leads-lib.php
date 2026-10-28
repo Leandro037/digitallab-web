@@ -8,7 +8,8 @@
  * - R10: «atendido» se guarda en /dl-leads/atendidos.json (0600, con bloqueo y escritura atómica). El JSON
  *   del lead no se toca y no se copia nada a public_html.
  * - R8: CSV con toda celda entre comillas y apóstrofo delante de = + - @ tabulador o retorno.
- * - Caducidad = recibido + 30 días (la purga real la hace demo.php por la fecha del archivo).
+ * - Caducidad = recibido + 30 días. Lo caducado no se muestra (leads_listar) y lo borra la purga: demo.php al
+ *   recibir solicitudes y, cada día aunque no haya visitas, el Cron de inc/purgar.php.
  */
 declare(strict_types=1);
 
@@ -77,8 +78,12 @@ function leads_normalizar(array $d, string $idArchivo): ?array
     return $l;
 }
 
-/** Todos los leads de la cola, del más reciente al más antiguo. Solo archivos lead-AAAAMMDDTHHMMSSZ-<16 hex>.json. */
-function leads_listar(string $cola): array
+/**
+ * Leads vigentes de la cola, del más reciente al más antiguo. Solo archivos lead-AAAAMMDDTHHMMSSZ-<16 hex>.json.
+ * Detalle 2 del 16 (tarea 52): un lead con 30 días o más (recibido + 30 días <= ahora) ya no se muestra, ni en
+ * la lista, ni en la ficha, ni en el CSV, aunque la purga aún no lo haya borrado del disco.
+ */
+function leads_listar(string $cola, int $ahora): array
 {
     $out = [];
     foreach (glob($cola . '/lead-*.json', GLOB_NOSORT) ?: [] as $f) {
@@ -93,7 +98,7 @@ function leads_listar(string $cola): array
         }
         if (!is_array($d)) continue;
         $l = leads_normalizar($d, "L-{$m[1]}-{$m[2]}-{$m[3]}");
-        if ($l !== null) $out[] = $l;
+        if ($l !== null && strtotime($l['caduca']) > $ahora) $out[] = $l;
     }
     usort($out, static fn(array $a, array $b): int => [$b['recibido'], $b['id']] <=> [$a['recibido'], $a['id']]);
     return $out;
@@ -133,15 +138,32 @@ function atendidos_leer(string $cola): array
 function atendidos_cambiar(string $cola, string $id, bool $atendido, int $ahora, array $idsVigentes): ?array
 {
     if (!preg_match(PS_ID_LEAD, $id)) return null;
+    return atendidos_escribir($cola, $idsVigentes, static function (array $mapa) use ($id, $atendido, $ahora): array {
+        if ($atendido) $mapa[$id] = $mapa[$id] ?? gmdate('Y-m-d\TH:i:s\Z', $ahora);
+        else unset($mapa[$id]);
+        return $mapa;
+    });
+}
+
+/** Purga diaria: quita de atendidos.json los ids que ya no están vigentes. Devuelve cuántos quitó (null si falla). */
+function atendidos_podar(string $cola, array $idsVigentes): ?int
+{
+    if (!is_file($cola . '/atendidos.json')) return 0;
+    $antes = count(atendidos_leer($cola));
+    $mapa = atendidos_escribir($cola, $idsVigentes, static fn(array $m): array => $m);
+    return $mapa === null ? null : $antes - count($mapa);
+}
+
+/** Lee, aplica $cambio y escribe atendidos.json bajo flock (temporal + rename, 0600), solo con ids vigentes. */
+function atendidos_escribir(string $cola, array $idsVigentes, callable $cambio): ?array
+{
     $viejo = umask(0077);
     $fh = @fopen($cola . '/atendidos.lock', 'c');
     umask($viejo);
     if (!$fh) return null;
     try {
         if (!flock($fh, LOCK_EX)) return null;
-        $mapa = array_intersect_key(atendidos_leer($cola), array_flip($idsVigentes));
-        if ($atendido) $mapa[$id] = $mapa[$id] ?? gmdate('Y-m-d\TH:i:s\Z', $ahora);
-        else unset($mapa[$id]);
+        $mapa = $cambio(array_intersect_key(atendidos_leer($cola), array_flip($idsVigentes)));
         ksort($mapa);
         $tmp = $cola . '/.tmp-atendidos-' . bin2hex(random_bytes(8));
         $viejo = umask(0077);
@@ -182,7 +204,7 @@ function leads_api(array $server, array $get, string $cuerpo, string $cola, stri
 {
     $metodo = $server['REQUEST_METHOD'] ?? '';
     if ($metodo === 'GET') {
-        $lista = leads_listar($cola);
+        $lista = leads_listar($cola, $ahora);
         $atendidos = atendidos_leer($cola);
         if (!array_key_exists('id', $get)) {
             ps_registrar($dir, 'lista', '', $v, 'ok', $ahora);
@@ -206,7 +228,7 @@ function leads_api(array $server, array $get, string $cuerpo, string $cola, stri
     if (($in['accion'] ?? '') !== 'atendido' || !is_bool($in['atendido'] ?? null)) return [400, ['ok' => false, 'error' => 'datos']];
     $id = $in['id'] ?? null;
     if (!is_string($id) || !preg_match(PS_ID_LEAD, $id)) return [400, ['ok' => false, 'error' => 'id']];
-    $lista = leads_listar($cola);
+    $lista = leads_listar($cola, $ahora);
     $accion = $in['atendido'] ? 'atendido' : 'nuevo';
     if (leads_buscar($lista, $id) === null) { ps_registrar($dir, $accion, $id, $v, 'no_existe', $ahora); return [404, ['ok' => false, 'error' => 'no_existe']]; }
     $mapa = atendidos_cambiar($cola, $id, $in['atendido'], $ahora, array_column($lista, 'id'));
@@ -258,7 +280,7 @@ function leads_csv_procesar(array $server, array $post, string $cola, string $di
         ps_registrar($dir, 'csv', '', $v, 'csrf', $ahora);
         return [403, $texto, "Petición rechazada.\n"];
     }
-    $lista = leads_listar($cola);
+    $lista = leads_listar($cola, $ahora);
     ps_registrar($dir, 'csv', '', $v, 'ok', $ahora);
     return [200, [
         'Content-Type' => 'text/csv; charset=utf-8',
