@@ -61,6 +61,7 @@ auditoria/  (completa, con sus 3 archivos .htaccess; ver «Auditoría web»)
 studio/     (index.html, studio.css, studio.js, hilos.js y agentes/ con los 35 avatares del manual de estilo)
 login/      (completa; ver «Acceso al panel»)
 contacto/   (enviar.php; ver «Formulario de contacto»)
+demo/       (la página y demo.php; ver «Formulario "Pide tu demo"». Nunca privado/ ni pruebas/)
 ```
 
 No hace falta subir `README.md`, `.nojekyll`, `.gitignore` ni la carpeta `.git` (el servidor bloquea igualmente su acceso).
@@ -95,6 +96,18 @@ Con `?demo` al final de la dirección se ve una simulación con la auditoría de
 **Protecciones:** solo audita webs públicas (rechaza IP privadas, `localhost`, puertos que no sean 80/443 y redirecciones hacia la red interna); 6 auditorías por hora por visitante, 20 llamadas a la IA por auditoría y 400 por día en total (ajustables en la configuración); el servidor decide qué datos recibe cada agente y en qué orden; campo trampa contra bots; solo acepta peticiones desde dl-dev.com. Los datos de cada auditoría se guardan en `auditoria/api/data/` (bloqueada desde internet) y se borran a las 24 h. Cada llamada a la IA deja su consumo de tokens en el registro de errores de PHP.
 
 **Coste aproximado:** con todos los agentes en Claude Opus 5.5, unos US$0,56 por auditoría si el 16 la aprueba a la primera y unos US$1,13 si pide correcciones (medido el 19/10/2026); tarda de 2 a 5 minutos. PageSpeed Insights es gratuito.
+
+## Formulario «Pide tu demo» (`/demo/demo.php`)
+
+`demo/demo.php` recibe el formulario de `/demo/` (POST con JSON) y guarda **un archivo JSON por solicitud** en la cola privada `/dl-leads/` (carpeta hermana de `public_html`, permisos 0700; cada archivo 0600). No envía correos ni guarda la IP. La recoge el ordenador de Digital Lab (tarea 14: `pendientes.php` y `confirmar.php`).
+
+**Configuración** (una sola vez): copia `privado/dl-leads/config.example.php` como `/dl-leads/config.php` en el servidor (0600) y pon una `sal` aleatoria de al menos 32 caracteres. Sin ella, o si la cola no existe o está dentro de `public_html`, responde 503 y no guarda nada. La carpeta `privado/` refleja lo que vive fuera de la web: nunca se sube a `public_html`.
+
+**Protecciones:** solo POST `application/json` con `Origin` de dl-dev.com; 5 envíos por hora y visitante y 100 solicitudes guardadas al día; campo trampa `web` y tiempo `t` (ms desde que se abrió el formulario: < 3 s se descarta en silencio, > 2 h pide reintentar); `consent_respuesta` debe ser `true` y `consent_version` una de las publicadas en la configuración; listas cerradas y longitudes máximas; UTM de ≤ 60 caracteres `[A-Za-z0-9_-]` (si no, vacías). Para el límite por hora se guarda un HMAC de la IP con sal que cambia cada día y se borra a la hora del último intento. Las solicitudes de más de 30 días se borran.
+
+**Respuestas** (siempre JSON con `ok`): 200 éxito · 400 `campos` (con `campos: {nombre: falta|largo, …}`), `datos` o `tiempo` · 403 `origen` · 405 · 409 `version` · 413 · 415 · 429 `limite` (con `Retry-After`) · 500 `error` · 503 `sin_servicio`. Detalle en la cabecera de `demo/demo.php`.
+
+**Pruebas:** `php pruebas/demo/prueba-demo.php` (PHP 8.1+, sin dependencias; trabaja en una carpeta temporal con datos ficticios). `pruebas/` no se sube a `public_html`.
 
 ## Acceso al panel (`/login/`)
 
