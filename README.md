@@ -113,11 +113,20 @@ Con `?demo` al final de la dirección se ve una simulación con la auditoría de
 
 ## Acceso al panel (`/login/`)
 
-El botón «Login» del menú lleva a `login/`. `login/entrar.php` comprueba el email y la contraseña en el servidor y, si son correctos, devuelve la dirección del panel (el organigrama de Digital Lab en claude.ai). Ni la contraseña ni esa dirección están en el código público. Se configuran en `dl-auditoria-config.php`:
+El botón «Login» del menú lleva a `login/`. `login/entrar.php` comprueba el email y la contraseña en el servidor y, si son correctos, abre la sesión del panel y lleva a `/panel/leads.php`. Endurecido en la tarea 50 con los requisitos R1-R12 del 25 (`panel/seguridad.php`): sin segundo factor (riesgo aceptado por dirección).
 
-- `admin_email`, `admin_password_hash` (la contraseña cifrada: `php -r "echo password_hash('LA_CONTRASEÑA', PASSWORD_DEFAULT);"`) y `admin_url`.
+- **Configuración** (`dl-auditoria-config.php`, fuera de `public_html`): `admin_email`, `admin_password_hash` (argon2id, o bcrypt coste ≥ 12, de una contraseña de 14+ caracteres) y `panel_sal` (32+ caracteres). Las dos últimas se generan **en local** con `python scripts/hash-contrasena.py` (pide la contraseña sin mostrarla; nunca la pegues en un chat). Opcionales: `panel_dir` (carpeta privada; por defecto `/dl-leads/panel`), `panel_aviso_para` (aviso de cada inicio de sesión; por defecto `digital-lab@dl-dev.com`, `''` = sin aviso) y `panel_aviso_de`. La IP real (`ip_cabecera`, `ip_proxies`) se lee de `/dl-leads/config.php`, la misma que usa `/demo` (`inc/ip.php`, compartido).
+- **Si falta algo, se cierra**: sin correo o hash válido, o sin sal o carpeta privada válida, el login responde 503.
+- **Bloqueo**: 5 fallos en 15 min bloquean al visitante 15 min (IPv6 por /64), duplicando hasta 24 h; 30 fallos en una hora de cualquiera bloquean el login 15 min y avisan por correo. Siempre la misma respuesta («credenciales»).
+- **Sesión**: cookie `__Host-dlpanel` (Secure, HttpOnly, SameSite=Strict), 30 min de inactividad y 8 h como máximo, id nuevo al entrar; los archivos de sesión, el registro de accesos (90 días, sin datos personales) y los contadores viven en la carpeta privada, fuera de `public_html`.
 
-Límite de 8 intentos cada 15 minutos por visitante. Ojo: si el organigrama es público en claude.ai, quien tenga su dirección puede abrirlo sin pasar por aquí. En GitHub Pages el login no funciona (no hay PHP).
+En GitHub Pages el login no funciona (no hay PHP).
+
+## Leads en el panel (`/panel/leads.php`, tarea 50)
+
+Lista, búsqueda, filtros, ficha, contadores, «Marcar como atendido» / «Volver a nuevo» y «Descargar CSV» de las solicitudes de `/demo`. Lee `/dl-leads/lead-*.json` (nunca copia nada a `public_html`); el estado «atendido» va en `/dl-leads/atendidos.json` (0600) sin tocar el JSON del lead. Caducidad = recibido + 30 días (la purga la hace `demo.php`). Archivos: `panel/leads.php` (página), `leads.js`, `leads.css`, `leads-api.php`, `leads-csv.php`, `leads-lib.php`.
+
+**Pruebas:** `php pruebas/panel/prueba-panel.php` (R1-R12 y lectura de leads, datos ficticios en carpeta temporal) y `node pruebas/panel/e2e-panel.mjs` (Playwright + `php -S` con una copia temporal de la web y configuración ficticia; `DL_CAPTURAS=<carpeta>` guarda capturas).
 
 ## SEO
 
@@ -141,4 +150,4 @@ Límite de 8 intentos cada 15 minutos por visitante. Ojo: si el organigrama es p
 
 ## Estadísticas y panel (`/panel/`)
 
-Medición propia sin cookies: `js/analitica.js` envía a `panel/r.php`; los datos van a una base SQLite en `panel/datos/` (bloqueada por `.htaccess`, fuera de git). El país sale de la base DB-IP Lite (`panel/datos/geo4.bin` y `geo6.bin`, se regeneran cada mes con `node herramientas/geo-dbip.mjs` desde dl-agentes y se publican con `publicar-web.mjs`). El panel (`panel/index.html`) pide sesión: se abre al entrar en `/login/` con el email y la contraseña de `dl-auditoria-config.php`. Zona horaria y plazo de conservación: claves opcionales `panel_zona` y `panel_dias` de esa configuración.
+Medición propia sin cookies: `js/analitica.js` envía a `panel/r.php`; los datos van a una base SQLite en `panel/datos/` (bloqueada por `.htaccess`, fuera de git). El país sale de la base DB-IP Lite (`panel/datos/geo4.bin` y `geo6.bin`, se regeneran cada mes con `node herramientas/geo-dbip.mjs` desde dl-agentes y se publican con `publicar-web.mjs`). El panel (`panel/index.html`) pide sesión: se abre al entrar en `/login/` con el email y la contraseña de `dl-auditoria-config.php` (ver «Acceso al panel»); el menú «Estadísticas / Leads» lleva a la sección Leads. Zona horaria y plazo de conservación: claves opcionales `panel_zona` y `panel_dias` de esa configuración.

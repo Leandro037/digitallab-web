@@ -10,37 +10,26 @@ if (!defined('DL_PANEL')) { http_response_code(404); exit; }
 if (!defined('DL_AUDIT')) define('DL_AUDIT', 1);   // reutiliza cfg(), json_out(), fail() de la auditoría
 require_once dirname(__DIR__) . '/auditoria/api/lib.php';
 
+require_once __DIR__ . '/seguridad.php';
+
 const PANEL_DATOS = __DIR__ . '/datos';
 const PANEL_VERSION_DB = 1;
-const PANEL_SESION_HORAS = 12;
 
 /* ------------------------------------------------------------------ */
-/* Sesión del panel (cookie de sesión solo para quien entra con el login) */
+/* Sesión del panel: panel/seguridad.php (R3: 30 min de inactividad,    */
+/* 8 h máximo, sesiones fuera de public_html, cookie __Host-)           */
 /* ------------------------------------------------------------------ */
-
-function panel_sesion_iniciar(bool $soloLeer = false): void
-{
-    if (session_status() === PHP_SESSION_ACTIVE) return;
-    $dir = PANEL_DATOS . '/sesiones';
-    if (!is_dir($dir)) @mkdir($dir, 0700, true);
-    session_save_path($dir);
-    ini_set('session.gc_maxlifetime', (string) (PANEL_SESION_HORAS * 3600));
-    ini_set('session.use_strict_mode', '1');
-    session_name('dlpanel');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
-    session_start($soloLeer ? ['read_and_close' => true] : []);
-}
 
 function panel_autorizado(): bool
 {
-    if (!isset($_COOKIE['dlpanel'])) return false;
-    panel_sesion_iniciar(true);
-    return !empty($_SESSION['admin']) && (int) ($_SESSION['t'] ?? 0) > time() - PANEL_SESION_HORAS * 3600;
+    $e = ps_estado(ps_config(), $_SERVER);
+    return $e['login'] && ps_sesion_actual((string) $e['dir'], time()) !== null;
 }
 
 function panel_exigir(): void
 {
-    if (!panel_autorizado()) { header('Cache-Control: no-store'); json_out(['ok' => false, 'error' => 'sin_sesion'], 401); }
+    ps_cabeceras();
+    if (!panel_autorizado()) json_out(['ok' => false, 'error' => 'sin_sesion'], 401);
 }
 
 /* ------------------------------------------------------------------ */
