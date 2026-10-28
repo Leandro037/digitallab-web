@@ -26,6 +26,9 @@
 /* Titulares a la izquierda con la marca verde (#como, #equipo) */
 .st-sec .st-head.dm-head { gap: 20px; margin-bottom: clamp(26px, 3.4vw, 44px); }
 .dm-como-t { max-width: 8.6em; }
+/* «Qué incluye»: misma marca verde bajo el titular, sin tocar el HTML */
+#que-hace > .st-head { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; margin-bottom: clamp(26px, 3.4vw, 44px); }
+#que-hace > .st-head::after { content: ""; display: block; width: 64px; height: 2px; background: var(--green); }
 .fa-sec .st-head { gap: 20px; max-width: 640px; margin-bottom: 0; }
 .fa-sec .st-head h2 { text-wrap: balance; }
 .fa-label { margin: 0; color: var(--muted); font: 500 12.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
@@ -219,6 +222,7 @@ fieldset.field legend { margin-bottom: 8px; padding: 0; color: var(--muted); fon
 .form__ok b svg { width: 24px; height: 24px; }
 .form__ok p { margin: 0; color: var(--text); font-size: clamp(20px, 2vw, 26px); font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
 .form__ok p span { display: block; margin-top: 6px; color: var(--muted); font-size: 16.5px; font-weight: 400; letter-spacing: 0; }
+.form__ok p span span { display: inline; margin: 0; white-space: nowrap; }
 
 /* ---------- Pie ---------- */
 .legal-foot { position: relative; z-index: 2; background: var(--bg); }
