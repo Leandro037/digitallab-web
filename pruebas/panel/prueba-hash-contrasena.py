@@ -106,7 +106,8 @@ class FtpFalso:
 
 
 def args(**kw):
-    base = dict(aplicar=False, sin_red=False, php=PHP, bcrypt=False, aprobado_por="Persona de prueba", restaurar_config=None)
+    base = dict(aplicar=False, sin_red=False, php=PHP, bcrypt=False, aprobado_por="Persona de prueba", restaurar_config=None,
+                solo_sal=False, forzar=False)
     base.update(kw)
     return argparse.Namespace(**base)
 
@@ -297,6 +298,99 @@ try:
     ok(c.returncode != 0 and "solo valen con --subir" in c.stderr, "--aplicar sin --subir se niega")
     c = cli("--subir", "--sin-red", "--aplicar", "--aprobado-por", "X")
     ok(c.returncode != 0 and "--sin-red solo vale en simulación" in c.stderr, "--sin-red no vale al aplicar")
+    c = cli("--solo-sal")
+    ok(c.returncode != 0 and "--solo-sal solo vale con --subir" in c.stderr, "--solo-sal sin --subir se niega")
+    c = cli("--subir", "--forzar")
+    ok(c.returncode != 0 and "--forzar solo vale con --solo-sal" in c.stderr, "--forzar sin --solo-sal se niega")
+    c = cli("--subir", "--solo-sal", "--bcrypt")
+    ok(c.returncode != 0 and "--bcrypt" in c.stderr, "--solo-sal con --bcrypt se niega")
+    c = cli("--subir", "--solo-sal", "--sin-red")
+    ok(c.returncode == 0 and "solo la sal" in c.stdout and "panel_sal" in c.stdout and "admin_password_hash:" not in c.stdout,
+       "--solo-sal --subir --sin-red simula sin conectar y solo habla de panel_sal", c.stdout + c.stderr)
+    c = cli("--subir", "--solo-sal", "--aplicar", "--aprobado-por", "X", "--sin-red")
+    ok(c.returncode != 0, "--solo-sal con --aplicar --sin-red se niega")
+
+    print("9. --solo-sal: añade panel_sal sin tocar la contraseña")
+    CLAVE_P = "clave-ficticia-solo-sal-2026"
+    HASH_REAL = hc.generar_hash(PHP, CLAVE_P.encode(), True)
+    CFG = CONFIG.replace(VIEJO, HASH_REAL)
+    CFG_SAL = CFG.replace("'limite' => 5\n", "'limite' => 5,\n    'panel_sal' => 'SalAnteriorFicticia_0123456789-abcdefghijABCDEFGHIJ0123456789xyz',\n")
+    SAL_VIEJA = "SalAnteriorFicticia_0123456789-abcdefghijABCDEFGHIJ0123456789xyz"
+    original_getpass = getpass.getpass
+    def sin_getpass(prompt=""):
+        raise AssertionError("--solo-sal no debe pedir contraseña")
+    getpass.getpass = sin_getpass
+    try:
+        # simulación
+        ftp = FtpFalso({REM: CFG.encode()}, {REM: "0640"})
+        r, out = ejecutar(hc.cmd_subir, args(solo_sal=True), pf, ftp_factory=lambda: ftp, ahora=AHORA)
+        ok(r == 0 and "solo la sal" in out and "panel_sal: no existe -> se añadiría" in out
+           and "admin_password_hash: existe y password_verify lo acepta" in out and "AVISO" not in out, "simula: dice que la sal se añadiría y que el hash es válido", out)
+        ok("admin_password_hash: existe -> se sustituiría" not in out and HASH_REAL not in out and "sk-ficticia" not in out and "admin@ejemplo.test" not in out,
+           "no promete cambiar el hash ni muestra valores")
+        ok([o[0] for o in ftp.ops] == ["RETR"] and ftp.archivos == {REM: CFG.encode()} and ftp.cerrado, "simulación: solo lectura", str(ftp.ops))
+        # aplicar
+        ftp = FtpFalso({REM: CFG.encode(), "/public_html/index.html": b"web"}, {REM: "0640"})
+        sello9 = datetime(2026, 10, 28, 16, 0, 0).strftime("%Y-%m-%d-%H%M%S")
+        r, out = ejecutar(hc.cmd_subir, args(solo_sal=True, aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 16, 0, 0))
+        fin = ftp.archivos[REM].decode()
+        m = re.search(r"'panel_sal' => '([A-Za-z0-9_-]{64})'", fin)
+        ok(r == 0 and m is not None and fin.count("'panel_sal'") == 1, "añade una panel_sal de 64 caracteres URL-safe (mismo formato)", out)
+        quitada = fin.replace(f"    'panel_sal' => '{m[1]}',\n", "").replace("'limite' => 5,", "'limite' => 5") if m else ""
+        ok(quitada == CFG and f"'admin_password_hash' => '{HASH_REAL}'," in fin, "admin_password_hash y el resto del archivo quedan byte a byte iguales")
+        try:
+            hc.comprobar(PHP, CFG, fin, {"panel_sal": m[1]}, ("panel_sal",))
+            ok(True, "PHP confirma: solo panel_sal es nueva, las demás claves idénticas")
+        except (ValueError, TypeError) as e:
+            ok(False, "PHP confirma: solo panel_sal es nueva, las demás claves idénticas", str(e))
+        a_ = hc._resumen(PHP, fin)
+        ok(set(a_) == set(hc._resumen(PHP, CFG)) | {"panel_sal"}, "PHP: se añadió una sola clave")
+        ok(ftp.modos[REM] == "0640" and ftp.archivos["/public_html/index.html"] == b"web" and not any(k.startswith(REM + ".tmp") for k in ftp.archivos),
+           "conserva permisos (0640), no deja temporal y no toca nada más")
+        cop = pf.BACKUPS / sello9 / "claves-previas.json"
+        txt = cop.read_text(encoding="utf-8") if cop.is_file() else ""
+        ok(cop.is_file() and json.loads(txt)["claves"] == {"panel_sal": None}, "la copia previa solo guarda panel_sal = null")
+        mf9 = (pf.BACKUPS / sello9 / "manifiesto.json").read_text(encoding="utf-8")
+        ok(m and all(s not in txt + mf9 + out for s in (m[1], HASH_REAL, "sk-ficticia")), "nunca se muestra ni se guarda la sal nueva ni el hash")
+        ok("tu contraseña de siempre" in out and "--restaurar-config" in out and "--solo-sal" in mf9, "explica que la contraseña no cambia y cómo volver atrás")
+        # restaurar la copia de solo-sal deja el archivo como estaba
+        r2, out2 = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / sello9), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 16, 30, 0))
+        ok(r2 == 0 and ftp.archivos[REM] == CFG.replace("'limite' => 5\n", "'limite' => 5,\n").encode() and ftp.modos[REM] == "0640" and "'panel_sal'" not in ftp.archivos[REM].decode(),
+           "--restaurar-config sobre esa copia quita la sal (queda la coma final) y conserva permisos", out2)
+        # ya existe: no hace nada
+        ftp = FtpFalso({REM: CFG_SAL.encode()}, {REM: "0600"})
+        for ap in (False, True):
+            r, out = ejecutar(hc.cmd_subir, args(solo_sal=True, aplicar=ap), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 17, 0, 0))
+            ok(r == 0 and "panel_sal: ya existe -> no se hace nada" in out and all(o[0] == "RETR" for o in ftp.ops),
+               f"si panel_sal ya existe no hace nada ({'aplicar' if ap else 'simular'})", out + str(ftp.ops))
+            ok(ftp.archivos == {REM: CFG_SAL.encode()} and SAL_VIEJA not in out, "  el archivo no cambia y no muestra la sal")
+        ok(not (pf.BACKUPS / "2026-10-28-170000").exists(), "  sin copia previa si no hay cambio")
+        # --forzar
+        r, out = ejecutar(hc.cmd_subir, args(solo_sal=True, forzar=True, aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 18, 0, 0))
+        fin2 = ftp.archivos[REM].decode()
+        m2 = re.search(r"'panel_sal' => '([A-Za-z0-9_-]{64})'", fin2)
+        ok(r == 0 and m2 and m2[1] != SAL_VIEJA and SAL_VIEJA not in fin2 and fin2.count("'panel_sal'") == 1 and f"'{HASH_REAL}'" in fin2,
+           "--forzar sustituye la sal existente y deja el hash igual", out)
+        cop2 = (pf.BACKUPS / "2026-10-28-180000" / "claves-previas.json").read_text(encoding="utf-8")
+        ok(json.loads(cop2)["claves"] == {"panel_sal": "'" + SAL_VIEJA + "'"} and HASH_REAL not in cop2 and m2[1] not in cop2 + out,
+           "la copia previa solo lleva la sal anterior; la nueva no se muestra")
+        r2, _ = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / "2026-10-28-180000"), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 18, 30, 0))
+        ok(r2 == 0 and ftp.archivos[REM] == CFG_SAL.encode(), "restaurar tras --forzar deja la sal anterior byte a byte")
+        # hash no válido
+        for malo, nombre in ((CFG.replace(HASH_REAL, "contrasena-en-texto-plano"), "texto plano"),
+                             (CFG.replace(HASH_REAL, "$1$viejo$abcdefghijklmnopqrstuv"), "formato MD5-crypt no admitido"),
+                             (CFG.replace(f"    'admin_password_hash' => '{HASH_REAL}',\n", ""), "sin la clave")):
+            ftp = FtpFalso({REM: malo.encode()}, {REM: "0600"})
+            r, out = ejecutar(hc.cmd_subir, args(solo_sal=True), pf, ftp_factory=lambda: ftp, ahora=AHORA)
+            ok(r == 0 and "AVISO: admin_password_hash" in out and "contrasena-en-texto-plano" not in out and "$1$viejo" not in out,
+               f"avisa sin mostrar el valor: {nombre}", out)
+        ok(hc.comprobar_hash_existente(PHP, CFG)[0] and hc.comprobar_hash_existente(PHP, CONFIG)[0], "reconoce hashes $2y$ válidos")
+        # el config del servidor no se puede cambiar con seguridad
+        ftp = FtpFalso({REM: CFG.replace("];", "    'panel_sal' => 'a',\n    'panel_sal' => 'b',\n];").encode()}, {REM: "0600"})
+        r, out = ejecutar(hc.cmd_subir, args(solo_sal=True, aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 19, 0, 0))
+        ok(isinstance(r, str) and "a mano" in r and [o[0] for o in ftp.ops] == ["RETR"], "panel_sal repetida: no se toca nada", str(r))
+    finally:
+        getpass.getpass = original_getpass
 finally:
     shutil.rmtree(TMP, ignore_errors=True)
 
