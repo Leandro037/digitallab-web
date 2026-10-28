@@ -291,7 +291,7 @@ $soloCab = $CFG + ['ip_cabecera' => 'HTTP_CF_CONNECTING_IP'];
 ok(demo_ip($s('10.1.2.3', '192.0.2.50'), $soloCab) === '10.1.2.3', 'ip_cabecera sin ip_proxies: se ignora');
 $cfgXff = $CFG + ['ip_cabecera' => 'HTTP_X_FORWARDED_FOR', 'ip_proxies' => ['10.0.0.0/8', '2001:db8:ffff::/48']];
 ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '1.2.3.4, 192.0.2.60'], $cfgXff) === '192.0.2.60',
-    'lista con comas: toma el ÚLTIMO valor válido (el que añadió el CDN), no el primero');
+    'lista con comas: toma el ÚLTIMO valor (el que añadió el CDN), no el primero');
 ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '192.0.2.61 , basura'], $cfgXff) === '10.0.0.1',
     'lista con un valor no válido al final: REMOTE_ADDR, no el anterior (que lo escribe el cliente)');
 ok(demo_ip(['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7, 192.0.2.62:443'], $cfgXff) === '10.0.0.1',

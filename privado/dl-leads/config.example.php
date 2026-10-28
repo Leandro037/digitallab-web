@@ -41,8 +41,9 @@ return [
     //      por hora de cualquiera recibe 429). Ver qué variables llegan con una prueba temporal fuera
     //      de la web pública (la hace dl-26 con aprobación) y anotar:
     //        - qué variable trae la IP real: la propia del CDN si existe (una sola IP, la escribe el CDN)
-    //          o, si no, 'HTTP_X_FORWARDED_FOR' (lista «cliente, proxy…»: demo.php toma el ÚLTIMO
-    //          valor válido, el que añadió el CDN; los primeros los puede inventar el cliente);
+    //          o, si no, 'HTTP_X_FORWARDED_FOR' (lista «cliente, proxy…»: demo.php solo usa el ÚLTIMO
+    //          valor, el que añadió el CDN, y si no es una IP válida usa REMOTE_ADDR; los primeros
+    //          los puede inventar el cliente);
     //        - desde qué redes llega REMOTE_ADDR (rangos publicados por el CDN o los medidos).
     //   3. Poner esa variable en 'ip_cabecera' (nombre como en $_SERVER, con HTTP_ y en mayúsculas)
     //      y las redes del CDN en 'ip_proxies' (formato CIDR).
