@@ -28,9 +28,13 @@ leads (clase Ftp; otra ruta con --publicador o DL_PUBLICADOR):
   2. Al aplicar: pide la contraseña con getpass, genera el hash y una sal nueva, sustituye o añade SOLO
      admin_password_hash y panel_sal y comprueba con PHP que el archivo sigue siendo válido y que todas las
      demás claves quedan idénticas.
-  3. Guarda copia del archivo anterior en docs/backups/<fecha-hora>/ del proyecto leads (fuera de Git) con
-     un manifiesto sin secretos.
+  3. Guarda en docs/backups/<fecha-hora>/claves-previas.json del proyecto leads (fuera de Git) SOLO los valores
+     anteriores de admin_password_hash y panel_sal (lo justo para volver atrás), más un manifiesto sin secretos.
+     No se copia el resto del archivo (lleva las claves de Anthropic, Google, etc.). Borra esa carpeta cuando
+     compruebes que el login nuevo funciona.
   4. Sube a un temporal, le pone los mismos permisos que tenía, comprueba tamaño y permisos y lo renombra.
+--restaurar-config repone esas dos claves (o quita la que no existía) en el archivo REMOTO ACTUAL; las demás
+claves, aunque hayan cambiado después, no se tocan.
 El correo de acceso sigue en 'admin_email'. Ver docs/traspasos/20-tarea-50-panel-leads.md (proyecto leads).
 """
 import argparse
@@ -52,7 +56,7 @@ MAX_BYTES = 1024
 PHP_LOCAL = r"C:\Users\Win10\herramientas\php83\php.exe"
 CLAVES = ("admin_password_hash", "panel_sal")
 CONFIG_REMOTA = "/dl-auditoria-config.php"
-NOMBRE_COPIA = "dl-auditoria-config.php"
+NOMBRE_COPIA = "claves-previas.json"   # solo los valores anteriores de CLAVES (literales PHP tal cual)
 PUBLICADOR = Path(os.environ.get("DL_PUBLICADOR")
                   or r"D:\Claude\Web Digital Lab\empresa\proyectos\leads\scripts\publicar-ftp.py")
 
@@ -165,26 +169,57 @@ def analizar(texto: str) -> dict:
     return plan
 
 
-def sustituir(texto: str, valores: dict) -> str:
+def valores_actuales(texto: str) -> dict:
+    """{clave: literal PHP tal cual está en el archivo, o None si la clave no existe}. Nunca se imprime."""
+    analizar(texto)
+    previos = {}
+    for clave in CLAVES:
+        m = _patron(clave).search(texto)
+        previos[clave] = m.group("val") if m else None
+    return previos
+
+
+def _quitar_linea(texto: str, clave: str) -> str:
+    """Quita la línea completa «'clave' => literal,». ValueError si no es exactamente eso (mejor a mano)."""
+    pat = re.compile(r"^[ \t]*(['\"])" + re.escape(clave) + r"\1[ \t]*=>[ \t]*(?:" + _LITERAL + r")[ \t]*,?[ \t]*(?:\r?\n|\Z)", re.M)
+    if len(pat.findall(texto)) != 1:
+        raise ValueError(f"«{clave}» no está en una línea propia: quítala a mano")
+    return pat.sub("", texto, count=1)
+
+
+def poner_literales(texto: str, literales: dict) -> str:
+    """Sustituye, añade o (si el literal es None) quita SOLO las dos claves del panel."""
     plan = analizar(texto)
     for clave in CLAVES:
-        if not isinstance(valores.get(clave), str) or not _VALOR_SEGURO.fullmatch(valores[clave]):
+        lit = literales.get(clave)
+        if lit is not None and not (isinstance(lit, str) and re.fullmatch(_LITERAL, lit)):
             raise ValueError(f"valor inesperado para «{clave}»")
     nuevo = texto
     for clave in CLAVES:
-        if plan[clave] == "sustituir":
+        if plan[clave] != "sustituir":
+            continue
+        if literales[clave] is None:
+            nuevo = _quitar_linea(nuevo, clave)
+        else:
             m = _patron(clave).search(nuevo)
-            nuevo = nuevo[:m.start("val")] + "'" + valores[clave] + "'" + nuevo[m.end("val"):]
-    faltan = [c for c in CLAVES if plan[c] == "añadir"]
+            nuevo = nuevo[:m.start("val")] + literales[clave] + nuevo[m.end("val"):]
+    faltan = [c for c in CLAVES if plan[c] == "añadir" and literales[c] is not None]
     if faltan:
         nl = "\r\n" if "\r\n" in nuevo else "\n"
         pos = _cierre(nuevo)
         antes = nuevo[:pos].rstrip()
         if not antes.endswith((",", "[", "(")):
             antes += ","
-        lineas = "".join(f"    '{c}' => '{valores[c]}',{nl}" for c in faltan)
+        lineas = "".join(f"    '{c}' => {literales[c]},{nl}" for c in faltan)
         nuevo = antes + nl + lineas + nuevo[pos:]
     return nuevo
+
+
+def sustituir(texto: str, valores: dict) -> str:
+    for clave in CLAVES:
+        if not isinstance(valores.get(clave), str) or not _VALOR_SEGURO.fullmatch(valores[clave]):
+            raise ValueError(f"valor inesperado para «{clave}»")
+    return poner_literales(texto, {c: "'" + valores[c] + "'" for c in CLAVES})
 
 
 def _resumen(php: str, texto: str) -> dict:
@@ -209,6 +244,47 @@ def comprobar(php: str, original: str, nuevo: str, valores: dict) -> None:
         raise ValueError(f"cambiaría el valor de {len(distintas)} clave(s) que no son del panel")
     if any(b[k] != _sha_php_texto(valores[k]) for k in CLAVES):
         raise ValueError("los valores nuevos no quedaron bien escritos")
+
+
+def comprobar_restauracion(php: str, antes: str, despues: str, previos: dict) -> None:
+    """Tras reponer: PHP válido, las demás claves idénticas y las dos del panel con su valor anterior (o ausentes)."""
+    a = _resumen(php, antes)
+    b = _resumen(php, despues)
+    esperadas = (set(a) - set(CLAVES)) | {k for k in CLAVES if previos[k] is not None}
+    if set(b) != esperadas:
+        raise ValueError("cambiarían otras claves además de las dos del panel")
+    distintas = [k for k in a if k not in CLAVES and a[k] != b[k]]
+    if distintas:
+        raise ValueError(f"cambiaría el valor de {len(distintas)} clave(s) que no son del panel")
+    puestas = [k for k in CLAVES if previos[k] is not None]
+    if puestas:
+        ref = _resumen(php, "<?php return [" + ", ".join(f"'{k}' => {previos[k]}" for k in puestas) + "];")
+        if any(b[k] != ref[k] for k in puestas):
+            raise ValueError("los valores anteriores no quedaron bien repuestos")
+
+
+def guardar_previas(carpeta: Path, previos: dict) -> None:
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ruta = carpeta / NOMBRE_COPIA
+    ruta.write_text(json.dumps({"remota": CONFIG_REMOTA, "claves": previos}, indent=2, ensure_ascii=False), encoding="utf-8")
+    try:
+        ruta.chmod(0o600)
+    except OSError:
+        pass
+    if json.loads(ruta.read_text(encoding="utf-8"))["claves"] != previos:
+        sys.exit("La copia de las claves previas no coincide: me detengo sin subir.")
+
+
+def leer_previas(ruta: Path) -> dict:
+    try:
+        previos = json.loads(ruta.read_text(encoding="utf-8"))["claves"]
+        ok = isinstance(previos, dict) and set(previos) == set(CLAVES) and all(
+            v is None or (isinstance(v, str) and re.fullmatch(_LITERAL, v)) for v in previos.values())
+    except (OSError, ValueError, KeyError, TypeError):
+        ok = False
+    if not ok:
+        sys.exit(f"{ruta} no tiene el formato de claves previas de hash-contrasena.py.")
+    return previos
 
 
 # ---------- servidor ----------
@@ -278,7 +354,7 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         if not _MODO.fullmatch(modo or ""):
             print(f"  AVISO: el servidor no informa de los permisos ({modo}); al aplicar me detendría.")
         copia = pf.BACKUPS / sello / NOMBRE_COPIA
-        print(f"Copia previa -> {copia}")
+        print(f"Copia previa (solo los valores anteriores de {' y '.join(CLAVES)}; el resto del archivo no se copia) -> {copia}")
         print(f"Subida: {CONFIG_REMOTA}.tmp-{sello} -> SITE CHMOD {modo[-3:] if modo else '?'} -> comprobar -> renombrar")
         if not aplicar:
             print("\nSimulación terminada: no se subió ni se guardó nada.")
@@ -294,10 +370,7 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         except ValueError as e:
             sys.exit(f"No se sube: {e}. Nada cambió.")
         nuevo_b = nuevo.encode("utf-8")
-        copia.parent.mkdir(parents=True, exist_ok=True)
-        copia.write_bytes(original)
-        if copia.read_bytes() != original:
-            sys.exit("La copia de seguridad no coincide: me detengo sin subir.")
+        guardar_previas(copia.parent, valores_actuales(texto))
         (copia.parent / "manifiesto.json").write_text(json.dumps({
             "remota": CONFIG_REMOTA, "modo": modo, "sha_previo": sha(original), "sha_nuevo": sha(nuevo_b),
             "claves": plan, "aprobado_por": a.aprobado_por.strip(), "script": "hash-contrasena.py --subir",
@@ -309,9 +382,10 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         except Exception as e:
             sys.exit(f"Fallo al subir: {ftp.limpio(e)}. El archivo del servidor no cambió.")
         print(f"HECHO: {CONFIG_REMOTA} {ftp.info(CONFIG_REMOTA)[0]} bytes, permisos {ftp.modo(CONFIG_REMOTA)}")
-        print(f"Copia del anterior en {copia.parent}")
+        print(f"Valores anteriores de las dos claves en {copia.parent}")
         print(f"Para volver atrás: python scripts/hash-contrasena.py --restaurar-config \"{copia.parent}\" --aplicar --aprobado-por \"<nombre>\"")
         print("Prueba ahora a entrar en /login/ con la contraseña nueva. Las sesiones abiertas siguen hasta que caduquen.")
+        print(f"Cuando funcione, borra la carpeta {copia.parent} (lleva el hash y la sal anteriores).")
         return 0
     finally:
         valores = None
@@ -325,29 +399,45 @@ def cmd_restaurar(a, pf, ftp_factory=None, ahora=None) -> int:
     copia, mf = carpeta / NOMBRE_COPIA, carpeta / "manifiesto.json"
     if not copia.is_file() or not mf.is_file():
         sys.exit(f"En {carpeta} no hay {NOMBRE_COPIA} y manifiesto.json de hash-contrasena.py.")
-    datos = copia.read_bytes()
+    previos = leer_previas(copia)
+    php = buscar_php(a.php)
     print(f"Modo: {'APLICAR restauración' if a.aplicar else 'SIMULAR restauración (no se escribe nada)'}")
-    print(f"Se repondría {CONFIG_REMOTA} con la copia de {carpeta.name} ({len(datos)} bytes, sha256 {sha(datos)})")
+    print(f"Se repondrían solo {' y '.join(CLAVES)} de {CONFIG_REMOTA} con lo guardado en {carpeta.name}; el resto del archivo remoto actual no se toca")
     ftp = ftp_factory() if ftp_factory else pf.Ftp(pf.cargar_env())
     sello = (ahora or datetime.now()).strftime("%Y-%m-%d-%H%M%S")
     try:
-        modo, actual, _ = _leer_remota(ftp)
-        print(f"Ahora: {len(actual)} bytes, sha256 {sha(actual)}, permisos {modo}" + (" (= idéntico a la copia)" if actual == datos else ""))
+        modo, actual, texto = _leer_remota(ftp)
+        print(f"Ahora: {len(actual)} bytes, sha256 {sha(actual)}, permisos {modo}")
+        try:
+            plan = analizar(texto)
+            nuevo = poner_literales(texto, previos)
+            comprobar_restauracion(php, texto, nuevo, previos)
+        except ValueError as e:
+            sys.exit(f"No se restaura: {e}.")
+        for c in CLAVES:
+            if previos[c] is None:
+                print(f"- {c}: no existía antes -> " + ("se quitaría" if plan[c] == "sustituir" else "ya no está, sin cambios"))
+            else:
+                print(f"- {c}: " + ("se sustituiría por su valor anterior" if plan[c] == "sustituir" else "se añadiría con su valor anterior"))
+        print("- resto de claves: sin cambios (se comprueba con PHP antes de subir)")
         nueva = pf.BACKUPS / sello / NOMBRE_COPIA
-        print(f"Copia del actual -> {nueva} (por si hay que deshacer la restauración)")
+        print(f"Valores actuales de las dos claves -> {nueva} (por si hay que deshacer la restauración)")
         if not a.aplicar:
             print("\nSimulación terminada: no se cambió nada.")
             return 0
         if not _MODO.fullmatch(modo or ""):
             sys.exit("No se aplica: no sé qué permisos tiene el archivo y no los puedo conservar.")
-        nueva.parent.mkdir(parents=True, exist_ok=True)
-        nueva.write_bytes(actual)
+        nuevo_b = nuevo.encode("utf-8")
+        guardar_previas(nueva.parent, valores_actuales(texto))
         (nueva.parent / "manifiesto.json").write_text(json.dumps({
-            "remota": CONFIG_REMOTA, "modo": modo, "sha_previo": sha(actual), "sha_nuevo": sha(datos),
-            "aprobado_por": a.aprobado_por.strip(), "script": "hash-contrasena.py --restaurar-config " + carpeta.name,
+            "remota": CONFIG_REMOTA, "modo": modo, "sha_previo": sha(actual), "sha_nuevo": sha(nuevo_b),
+            "claves": plan, "aprobado_por": a.aprobado_por.strip(),
+            "script": "hash-contrasena.py --restaurar-config " + carpeta.name,
         }, indent=2, ensure_ascii=False), encoding="utf-8")
+        if ftp.leer(CONFIG_REMOTA) != actual:
+            sys.exit("El archivo del servidor cambió mientras tanto: no se sube. Vuelve a ejecutarlo.")
         try:
-            subir_config(ftp, datos, modo, sello)
+            subir_config(ftp, nuevo_b, modo, sello)
         except Exception as e:
             sys.exit(f"Fallo al subir: {ftp.limpio(e)}. El archivo del servidor no cambió.")
         print(f"HECHO: repuesto ({ftp.info(CONFIG_REMOTA)[0]} bytes, permisos {ftp.modo(CONFIG_REMOTA)})")

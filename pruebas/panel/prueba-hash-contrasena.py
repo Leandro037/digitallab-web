@@ -191,8 +191,13 @@ try:
     ok(("STOR", f"{REM}.tmp-{sello}") in ftp.ops and ops.index("STOR") < ops.index("CHMOD") < ops.index("RNFR") and not any(k.startswith(REM + ".tmp") for k in ftp.archivos),
        "sube a un temporal, pone permisos y renombra; no queda el temporal", str(ftp.ops))
     ok(ftp.archivos["/public_html/index.html"] == b"web", "no toca nada más del servidor")
-    copia = pf.BACKUPS / sello / "dl-auditoria-config.php"
-    ok(copia.is_file() and copia.read_bytes() == CONFIG.encode(), "guarda copia del anterior en docs/backups/<fecha-hora>/")
+    copia = pf.BACKUPS / sello / "claves-previas.json"
+    guardado = copia.read_text(encoding="utf-8") if copia.is_file() else ""
+    ok(copia.is_file() and json.loads(guardado)["claves"] == {"admin_password_hash": "'" + VIEJO + "'", "panel_sal": None},
+       "guarda en docs/backups/<fecha-hora>/ solo el hash anterior (y que la sal no existía)")
+    ok(sorted(p.name for p in (pf.BACKUPS / sello).iterdir()) == ["claves-previas.json", "manifiesto.json"]
+       and all(s not in guardado for s in ("sk-ficticia", "admin@ejemplo.test", "America/Argentina", "dl-dev.com", VALORES["admin_password_hash"], VALORES["panel_sal"])),
+       "no copia el config completo: ninguna otra clave ni valor nuevo, y ningún dl-auditoria-config.php")
     mf = (pf.BACKUPS / sello / "manifiesto.json").read_text(encoding="utf-8")
     ok(all(s not in mf for s in (VALORES["admin_password_hash"], VALORES["panel_sal"], VIEJO, "sk-ficticia")) and json.loads(mf)["aprobado_por"] == "Persona de prueba",
        "el manifiesto no lleva secretos y anota quién lo aprobó")
@@ -213,12 +218,57 @@ try:
     ok(isinstance(r, str) and "no existe" in r and ftp.archivos == {}, "si el archivo no existe no lo crea")
 
     print("6. --restaurar-config")
+    SIN_SAL = CONFIG.replace("'limite' => 5\n", "'limite' => 5,\n")   # lo que queda al quitar la sal que añadió --subir
     ftp = FtpFalso({REM: final.encode()}, {REM: "0600"})
     r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / sello)), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 13, 0, 0))
-    ok(r == 0 and ftp.archivos[REM] == final.encode() and "SIMULAR" in out, "simula sin cambiar nada")
+    ok(r == 0 and ftp.archivos[REM] == final.encode() and "SIMULAR" in out and "panel_sal: no existía antes -> se quitaría" in out
+       and "admin_password_hash: se sustituiría por su valor anterior" in out, "simula sin cambiar nada y dice qué haría", out)
+    ok(VIEJO not in out and VALORES["panel_sal"] not in out and not (pf.BACKUPS / "2026-10-28-130000").exists(), "la simulación no muestra valores ni guarda nada")
     r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / sello), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 13, 0, 0))
-    ok(r == 0 and ftp.archivos[REM] == CONFIG.encode() and ftp.modos[REM] == "0600", "repone la copia con los mismos permisos", out)
-    ok((pf.BACKUPS / "2026-10-28-130000" / "dl-auditoria-config.php").read_bytes() == final.encode(), "antes guarda copia de lo que había (se puede deshacer)")
+    ok(r == 0 and ftp.archivos[REM] == SIN_SAL.encode() and ftp.modos[REM] == "0600", "repone el hash anterior, quita la sal que no existía y conserva los permisos", out)
+    try:
+        hc.comprobar_restauracion(PHP, CONFIG, ftp.archivos[REM].decode(), {"admin_password_hash": "'" + VIEJO + "'", "panel_sal": None})
+        ok(True, "PHP confirma: mismas claves y valores que el config original")
+    except ValueError as e:
+        ok(False, "PHP confirma: mismas claves y valores que el config original", str(e))
+    for trampa, nombre in ((ftp.archivos[REM].decode().replace("sk-ficticia-de-prueba-0000", "sk-otra"), "otra clave cambiada"),
+                           (ftp.archivos[REM].decode().replace("'" + VIEJO + "'", "'$2y$10$otro-hash-distinto-0000000000000'"), "hash distinto al anterior")):
+        try:
+            hc.comprobar_restauracion(PHP, CONFIG, trampa, {"admin_password_hash": "'" + VIEJO + "'", "panel_sal": None})
+            ok(False, f"la comprobación de la restauración detecta: {nombre}")
+        except ValueError:
+            ok(True, f"la comprobación de la restauración detecta: {nombre}")
+    deshacer = pf.BACKUPS / "2026-10-28-130000" / "claves-previas.json"
+    ok(deshacer.is_file() and json.loads(deshacer.read_text(encoding="utf-8"))["claves"]["admin_password_hash"] == "'" + VALORES["admin_password_hash"] + "'"
+       and "sk-ficticia" not in deshacer.read_text(encoding="utf-8"), "antes guarda los valores que había (se puede deshacer), sin el resto del config")
+    # El config remoto cambió después de --subir: se reponen solo las dos claves y lo nuevo se conserva.
+    cambiado = final.replace("'limite' => 5,", "'limite' => 9,").replace("];", "    'clave_nueva' => 'despues-de-subir',\n];")
+    ftp = FtpFalso({REM: cambiado.encode()}, {REM: "0640"})
+    r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / sello), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 14, 0, 0))
+    res = ftp.archivos[REM].decode()
+    ok(r == 0 and VIEJO in res and VALORES["admin_password_hash"] not in res and "'panel_sal'" not in res
+       and "'limite' => 9," in res and "'clave_nueva' => 'despues-de-subir'" in res and ftp.modos[REM] == "0640",
+       "con el config remoto cambiado después, repone solo esas dos claves y respeta lo demás", out)
+    # Las dos claves existían antes (CRLF y sal con comillas dobles): se reponen ambas tal cual.
+    previo2 = crlf.replace("'vieja-sal-ficticia-de-32-caracteres-xx'", '"vieja-sal-ficticia-de-32-caracteres-xx"')
+    ftp = FtpFalso({REM: previo2.encode()}, {REM: "0600"})
+    ejecutar(hc.cmd_subir, args(aplicar=True), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=datetime(2026, 10, 28, 15, 0, 0))
+    ok(ftp.archivos[REM] != previo2.encode(), "(preparación) --subir cambió las dos claves")
+    r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / "2026-10-28-150000"), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 15, 5, 0))
+    ok(r == 0 and ftp.archivos[REM] == previo2.encode(), "si las dos claves existían, la restauración deja el archivo byte a byte como estaba", out)
+    # Fallos que no tocan el servidor
+    for nombre, contenido in (("claves-previas.json sin las dos claves", {"claves": {"admin_password_hash": "'x'"}}),
+                              ("un valor que no es un literal PHP simple", {"claves": {"admin_password_hash": "'a' . system('id') . 'b'", "panel_sal": None}})):
+        malo = pf.BACKUPS / "malo"
+        malo.mkdir(exist_ok=True)
+        (malo / "claves-previas.json").write_text(json.dumps(contenido), encoding="utf-8")
+        (malo / "manifiesto.json").write_text("{}", encoding="utf-8")
+        ftp = FtpFalso({REM: final.encode()}, {REM: "0600"})
+        r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(malo), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=AHORA)
+        ok(isinstance(r, str) and ftp.archivos == {REM: final.encode()} and ftp.ops == [], f"rechaza {nombre} sin conectar")
+    ftp = FtpFalso({REM: final.encode()}, {REM: "0600"})
+    r, out = ejecutar(hc.cmd_restaurar, args(restaurar_config=str(pf.BACKUPS / "no-existe"), aplicar=True), pf, ftp_factory=lambda: ftp, ahora=AHORA)
+    ok(isinstance(r, str) and ftp.ops == [], "una carpeta sin claves-previas.json se rechaza")
 
     print("7. La contraseña: getpass y nunca en pantalla")
     clave = "clave-ficticia-de-prueba-Ñ-2026"
