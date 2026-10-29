@@ -17,7 +17,7 @@ if (!$e['leads']) {
     echo '<!doctype html><html lang="es"><meta charset="utf-8"><title>Leads · Panel · Digital Lab</title><p>La sección Leads no está disponible en este servidor.</p></html>';
     exit;
 }
-$sesion = ps_sesion_actual((string) $e['dir'], time());
+$sesion = ps_sesion_actual($e, time());
 if ($sesion === null) { header('Location: /login/', true, 303); exit; }
 $csrf = htmlspecialchars((string) $sesion['csrf'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
@@ -45,7 +45,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 <header class="top">
   <a class="marca" href="/" aria-label="Digital Lab, inicio"><img src="/favicon.svg" alt="" width="34" height="34"><strong>DIGITAL LAB</strong><span>Panel</span></a>
-  <nav class="nav" aria-label="Secciones del panel"><a href="/panel/">Estadísticas</a><a href="/panel/leads.php" aria-current="page">Leads</a></nav>
+  <nav class="nav" aria-label="Secciones del panel"><a href="/panel/">Estadísticas</a><a href="/panel/leads.php" aria-current="page">Leads</a><a href="/panel/contrasena.php">Contraseña</a></nav>
   <a class="salir" href="salir.php">Salir</a>
 </header>
 

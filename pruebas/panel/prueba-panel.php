@@ -113,7 +113,7 @@ ok($guardado === str_replace('\\', '/', $e['dir']) . '/sesiones' && !str_starts_
 ok(ini_get('session.use_strict_mode') === '1' && ini_get('session.use_only_cookies') === '1', 'modo estricto y solo cookies');
 $antes = session_id();
 session_write_close();
-ok(ps_sesion_nueva((string) $e['dir'], $AHORA), 'login correcto abre sesión nueva');
+ok(ps_sesion_nueva($e, $AHORA), 'login correcto abre sesión nueva');
 $despues = session_id();
 ok($despues !== '' && $despues !== $antes, 'el id de sesión se regenera al entrar', "$antes → $despues");
 $f = glob($e['dir'] . '/sesiones/sess_*');
@@ -132,15 +132,15 @@ ok(!ps_sesion_valida(['inicio' => $AHORA + 3600] + $s, $AHORA), 'inicio en el fu
 // H1 (tarea 51): solo las acciones del usuario renuevan los 30 min; el sondeo automático no
 $_COOKIE[PS_COOKIE] = $despues;
 $archivoSes = $e['dir'] . '/sesiones/sess_' . $despues;
-$s1 = ps_sesion_actual((string) $e['dir'], $AHORA + 600, false);
+$s1 = ps_sesion_actual($e, $AHORA + 600, false);
 ok(is_array($s1) && $s1['ultimo'] === $AHORA && str_contains((string) file_get_contents($archivoSes), 'ultimo|i:' . $AHORA . ';'),
     'H1: una llamada automática (sin X-DL-Accion) no renueva «ultimo» ni reescribe la sesión');
-$s2 = ps_sesion_actual((string) $e['dir'], $AHORA + 1200, true);
+$s2 = ps_sesion_actual($e, $AHORA + 1200, true);
 ok(is_array($s2) && $s2['ultimo'] === $AHORA + 1200 && str_contains((string) file_get_contents($archivoSes), 'ultimo|i:' . ($AHORA + 1200) . ';'),
     'H1: una acción del usuario sí renueva «ultimo»');
 $vivas = 0;
 for ($i = 1; $i <= 31; $i++) {                        // sondeo cada 60 s con la pestaña abierta
-    if (ps_sesion_actual((string) $e['dir'], $AHORA + 1200 + 60 * $i, false) === null) break;
+    if (ps_sesion_actual($e, $AHORA + 1200 + 60 * $i, false) === null) break;
     $vivas = $i;
 }
 ok($vivas === 29, 'H1: con el sondeo activo cada 60 s, la sesión caduca a los 30 min de la última acción del usuario', "sondeos con sesión: $vivas");
@@ -150,9 +150,10 @@ ok(ps_es_accion_usuario(['HTTP_X_DL_ACCION' => '1']) && !ps_es_accion_usuario([]
 $jsPanel = (string) file_get_contents("$RAIZ/panel/panel.js");
 ok(str_contains($jsPanel, "cargar(true); }, 60000)") && str_contains($jsPanel, "auto === true ? {} : { 'X-DL-Accion': '1' }"),
     'H1: el sondeo de panel.js va sin X-DL-Accion; las demás cargas, con ella');
-ok(str_contains((string) file_get_contents("$RAIZ/panel/lib.php"), 'ps_sesion_actual((string) $e[\'dir\'], time(), ps_es_accion_usuario($_SERVER))')
-    && str_contains((string) file_get_contents("$RAIZ/panel/leads-api.php"), 'ps_es_accion_usuario($_SERVER)'),
-    'H1: api.php y leads-api.php solo renuevan con X-DL-Accion');
+ok(str_contains((string) file_get_contents("$RAIZ/panel/lib.php"), 'ps_sesion_actual($e, time(), ps_es_accion_usuario($_SERVER))')
+    && str_contains((string) file_get_contents("$RAIZ/panel/leads-api.php"), 'ps_es_accion_usuario($_SERVER)')
+    && str_contains((string) file_get_contents("$RAIZ/panel/contrasena-cambiar.php"), 'ps_sesion_actual($e, $ahora, ps_es_accion_usuario($_SERVER))'),
+    'H1: api.php, leads-api.php y contrasena-cambiar.php solo renuevan con X-DL-Accion');
 $jsLeads = preg_replace('#/\*.*?\*/|//[^\n]*#s', '', (string) file_get_contents("$RAIZ/panel/leads.js"));
 ok(!preg_match('/setInterval|setTimeout\(\s*cargar/', $jsLeads) && substr_count($jsLeads, 'fetch(') === 2,
     'H1: leads.js no sondea (sus dos fetch son acciones del usuario: api() y el CSV)');
@@ -377,7 +378,7 @@ ok($cab['Cache-Control'] === 'no-store' && $cab['X-Content-Type-Options'] === 'n
 $csp = $cab['Content-Security-Policy'];
 preg_match("/script-src ([^;]+)/", $csp, $sm);
 ok(str_contains($csp, "frame-ancestors 'none'") && isset($sm[1]) && trim($sm[1]) === "'self'" && !str_contains($csp, 'unsafe'), 'CSP con frame-ancestors none y scripts solo propios, sin unsafe-*', $csp);
-$entradas = ['panel/leads.php', 'panel/leads-api.php', 'panel/leads-csv.php', 'panel/api.php', 'panel/salir.php', 'login/entrar.php'];
+$entradas = ['panel/leads.php', 'panel/leads-api.php', 'panel/leads-csv.php', 'panel/api.php', 'panel/salir.php', 'login/entrar.php', 'panel/contrasena.php', 'panel/contrasena-cambiar.php'];
 foreach ($entradas as $f) {
     $src = (string) file_get_contents("$RAIZ/$f");
     $pos = strpos($src, 'ps_cabeceras()');
@@ -644,6 +645,171 @@ $demo = (string) file_get_contents("$RAIZ/demo/demo.php");
 ok(!str_contains($demo, 'function demo_ip(') && str_contains($demo, "require_once dirname(__DIR__) . '/inc/ip.php'"), 'demo.php ya no define las funciones de IP: las incluye');
 ok(str_contains((string) file_get_contents("$RAIZ/panel/seguridad.php"), "require_once dirname(__DIR__) . '/inc/ip.php'"), 'el login usa el mismo archivo');
 ok(str_contains((string) file_get_contents("$RAIZ/inc/.htaccess"), 'Require all denied'), 'inc/ cerrado a la web');
+
+/* ================================================================== */
+titulo('Tarea 54 · Cambiar la contraseña desde el panel');
+const NUEVA = 'otra-clave-ficticia-Ü-2026-larga';
+$c = nuevo_panel();
+$e = ps_estado($c, srv());
+$TOK = str_repeat('7', 64);
+$SES = ['admin' => 1, 'inicio' => $AHORA, 'ultimo' => $AHORA, 'csrf' => $TOK, 'huella' => $e['huella']];
+$ROTADA = null;
+function srv_cambio(string $ip = '203.0.113.150', array $extra = []): array
+{
+    return srv($ip, $extra + ['HTTP_X_DL_ACCION' => '1']);
+}
+// Un cambio. $rotar falso: anota la huella nueva y devuelve un token nuevo y 2 sesiones cerradas.
+function cambiar(array $c, array $server, array $cuerpo, int $ahora, array $ses, ?callable $rotar = null, ?callable $enviar = null): array
+{
+    global $ROTADA;
+    $e = ps_estado($c, $server);
+    $rotar ??= function (string $h) use (&$ROTADA): array { $ROTADA = $h; return ['csrf' => str_repeat('8', 64), 'cerradas' => 2]; };
+    return ps_cambiar_contrasena($server, (string) json_encode($cuerpo), $c, $e, $ses, $ahora, $rotar, $enviar ?? 'enviar_falso', fn($ip) => 'ES');
+}
+$cuerpoOk = ['actual' => PASS, 'nueva' => NUEVA, 'repite' => NUEVA, 'csrf' => $TOK];
+$contV = fn(string $ip) => json_decode((string) @file_get_contents($c['dir'] . '/bloqueo/v-' . ps_visitante(srv($ip), $c) . '.json'), true) ?: [];
+
+ok($e['origen_hash'] === 'config' && $e['hash'] === $HASH && strlen($e['huella']) === 32, 'sin credencial.json manda admin_password_hash del config');
+// R6: método, CSRF, Origin y cabecera de acción
+ok(cambiar($c, srv_cambio('203.0.113.150', ['REQUEST_METHOD' => 'GET']), $cuerpoOk, $AHORA, $SES)[0] === 405, 'por GET → 405');
+ok(cambiar($c, srv_cambio(), ['csrf' => null] + $cuerpoOk, $AHORA, $SES) === [403, ['ok' => false, 'error' => 'csrf']], 'sin token CSRF → 403');
+ok(cambiar($c, srv_cambio(), ['csrf' => str_repeat('9', 64)] + $cuerpoOk, $AHORA, $SES)[0] === 403, 'token distinto → 403');
+ok(cambiar($c, srv_cambio('203.0.113.150', ['HTTP_ORIGIN' => 'https://evil.test']), $cuerpoOk, $AHORA, $SES)[0] === 403, 'Origin ajeno → 403');
+$sinO = srv_cambio(); unset($sinO['HTTP_ORIGIN']);
+ok(cambiar($c, $sinO, $cuerpoOk, $AHORA, $SES)[0] === 403, 'sin Origin → 403');
+ok(cambiar($c, srv_cambio('203.0.113.150', ['HTTP_SEC_FETCH_SITE' => 'cross-site']), $cuerpoOk, $AHORA, $SES)[0] === 403, 'Sec-Fetch-Site cross-site → 403');
+ok(cambiar($c, srv('203.0.113.150'), $cuerpoOk, $AHORA, $SES)[0] === 403, 'sin «X-DL-Accion: 1» → 403 (solo una acción del usuario puede cambiarla)');
+ok(!is_file($c['dir'] . '/credencial.json') && $contV('203.0.113.150') === [], 'los rechazos por CSRF no cambian nada ni cuentan como intento');
+
+// Formato de la nueva: mensajes claros y sin contar como intento (no se compara nada)
+$f400 = fn(array $b) => cambiar($c, srv_cambio(), $b + $cuerpoOk, $AHORA, $SES);
+ok($f400(['nueva' => 'trece-letras!', 'repite' => 'trece-letras!'])[1]['error'] === 'corta', 'nueva de 13 caracteres → «corta»');
+ok($f400(['nueva' => str_repeat('ñ', 513), 'repite' => str_repeat('ñ', 513)])[1]['error'] === 'larga', 'nueva de 1026 bytes → «larga»');
+ok($f400(['repite' => NUEVA . 'x']) === [400, ['ok' => false, 'error' => 'no_coinciden', 'campo' => 'repite']], 'nueva y repetición distintas → «no_coinciden» en el campo de la repetición');
+ok($f400(['actual' => ''])[1]['error'] === 'actual_vacia', 'actual vacía → «actual_vacia»');
+ok($contV('203.0.113.150') === [] && !is_file($c['dir'] . '/credencial.json'), 'los errores de formato no cuentan como intento ni guardan nada');
+
+// R2: la actual incorrecta cuenta como intento de login (mismos contadores)
+$CORREOS = [];
+$r = cambiar($c, srv_cambio(), ['actual' => 'no-es-la-actual-123'] + $cuerpoOk, $AHORA, $SES);
+ok($r === [400, ['ok' => false, 'error' => 'actual', 'campo' => 'actual']], 'actual incorrecta → 400 «actual»');
+ok(count($contV('203.0.113.150')['fallos'] ?? []) === 1, 'la actual incorrecta suma un fallo al contador del visitante (el mismo del login)');
+$g = json_decode((string) file_get_contents($c['dir'] . '/bloqueo/global.json'), true);
+ok(count($g['fallos'] ?? []) === 1, 'y también al contador global');
+ok(!is_file($c['dir'] . '/credencial.json') && $ROTADA === null && $CORREOS === [], 'con la actual incorrecta no se guarda nada, no se toca la sesión ni se avisa');
+ok(cambiar($c, srv_cambio(), ['nueva' => PASS, 'repite' => PASS] + $cuerpoOk, $AHORA, $SES) === [400, ['ok' => false, 'error' => 'igual', 'campo' => 'nueva']], 'nueva igual a la actual → «igual» (solo se dice tras acertar la actual)');
+ok(count($contV('203.0.113.150')['fallos'] ?? []) === 0, 'acertar la actual anula su intento y olvida los fallos sueltos, como el login');
+
+// Cambio correcto
+$CORREOS = [];
+$r = cambiar($c, srv_cambio(), $cuerpoOk, $AHORA + 10, $SES);
+ok($r === [200, ['ok' => true, 'sesion' => true, 'csrf' => str_repeat('8', 64), 'cerradas' => 2, 'aviso' => true]], 'cambio correcto → 200 con token nuevo y sesiones cerradas', json_encode($r));
+$fc = $c['dir'] . '/credencial.json';
+$jc = json_decode((string) @file_get_contents($fc), true);
+ok(is_array($jc) && array_keys($jc) === ['formato', 'hash', 'base', 'cambiado'] && $jc['formato'] === 1 && $jc['base'] === hash('sha256', $HASH) && $jc['cambiado'] === gmdate('Y-m-d\TH:i:s\Z', $AHORA + 10),
+    'credencial.json: formato 1, hash, base = sha256 del hash del config y fecha UTC', json_encode(array_keys((array) $jc)));
+ok(password_get_info($jc['hash'])['algo'] === 'argon2id' && ps_hash_valido($jc['hash']) && password_verify(NUEVA, $jc['hash']), 'hash nuevo argon2id que verifica la nueva');
+if (DIRECTORY_SEPARATOR === '/') ok((fileperms($fc) & 0777) === 0600, 'credencial.json con permisos 0600');
+ok(glob($c['dir'] . '/.tmp-credencial-*') === [] && is_file($c['dir'] . '/credencial.lock'), 'escritura atómica: sin temporales y con archivo de bloqueo');
+$e2 = ps_estado($c, srv());
+ok($e2['origen_hash'] === 'panel' && $e2['hash'] === $jc['hash'] && $e2['huella'] !== $e['huella'] && $ROTADA === $e2['huella'], 'ahora manda credencial.json; la huella cambia y la sesión actual recibe la nueva');
+ok(login($c, srv('203.0.113.151'), $AHORA + 20, EMAIL, NUEVA)[0] === 200, 'login con la contraseña nueva → 200');
+ok(login($c, srv('203.0.113.152'), $AHORA + 20) === $CRED, 'la contraseña vieja ya no entra');
+ok(!ps_sesion_valida($SES, $AHORA + 20, $e2['huella']) && ps_sesion_valida(['huella' => $e2['huella']] + $SES, $AHORA + 20, $e2['huella']), 'una sesión con la huella anterior deja de valer; con la nueva, vale');
+ok(!ps_sesion_valida(array_diff_key($SES, ['huella' => 1]), $AHORA, $e['huella']) && !ps_sesion_valida($SES, $AHORA, ''), 'sesión sin huella (anterior a la tarea 54) o estado sin huella: no vale');
+$avisosC = array_values(array_filter($CORREOS, fn($x) => str_contains($x['asunto'], 'contraseña')));   // el login de después manda el suyo
+$m = $avisosC[0] ?? ['para' => '', 'asunto' => '', 'cuerpo' => '', 'de' => ''];
+ok(count($avisosC) === 1 && $m['asunto'] === '[dl-dev.com] Se cambió la contraseña del panel' && str_contains($m['cuerpo'], 'Si no fuiste tú') && str_contains($m['cuerpo'], 'hash-contrasena.py --subir')
+    && str_contains($m['cuerpo'], 'Fecha (UTC): ' . gmdate('Y-m-d H:i:s', $AHORA + 10)) && str_contains($m['cuerpo'], 'País aproximado: ES'), 'aviso por correo «se cambió la contraseña… si no fuiste tú…»', count($CORREOS) . ' ' . json_encode($m, JSON_UNESCAPED_UNICODE));
+$todo = json_encode($r) . $m['asunto'] . $m['cuerpo'] . (string) file_get_contents($fc);
+ok(!str_contains($todo, PASS) && !str_contains($todo, NUEVA) && !str_contains($todo, '203.0.113.150') && !str_contains($todo, EMAIL), 'ni la respuesta, ni el correo, ni credencial.json llevan contraseñas, IP ni correo');
+$regC = implode('', array_map('file_get_contents', glob($c['dir'] . '/registro/acceso-*.log')));
+$filasC = array_values(array_filter(array_map(fn($x) => json_decode($x, true), explode("\n", $regC)), fn($x) => is_array($x) && $x['accion'] === 'contrasena'));
+ok(array_column($filasC, 'r') === ['csrf', 'csrf', 'csrf', 'csrf', 'csrf', 'csrf', 'fallo', 'ok'], 'registro: cada rechazo CSRF, el fallo y el cambio, sin datos personales', implode(',', array_column($filasC, 'r')));
+ok(!str_contains($regC, PASS) && !str_contains($regC, NUEVA) && !str_contains($regC, '203.0.113.150') && !str_contains($regC, 'no-es-la-actual-123'), 'el registro no lleva contraseñas (ni la mala) ni IP');
+ok(cambiar($c, srv_cambio(), $cuerpoOk, $AHORA + 30, ['huella' => $e2['huella']] + $SES)[1]['error'] === 'actual', 'tras el cambio, la vieja ya no sirve como «actual»');
+$CORREOS = [];
+ok(cambiar($c, srv_cambio(), ['actual' => NUEVA, 'nueva' => PASS, 'repite' => PASS] + $cuerpoOk, $AHORA + 40, ['huella' => $e2['huella']] + $SES, null, fn() => false)
+    === [200, ['ok' => true, 'sesion' => true, 'csrf' => str_repeat('8', 64), 'cerradas' => 2, 'aviso' => false]], 'se puede volver a cambiar; si el correo falla, el cambio sigue (aviso: false)');
+ok(cambiar($c, srv_cambio(), ['actual' => PASS, 'nueva' => NUEVA, 'repite' => NUEVA] + $cuerpoOk, $AHORA + 50, $SES, fn() => null)[1] === ['ok' => true, 'sesion' => false, 'aviso' => true],
+    'si no se puede rotar la sesión, la contraseña cambia igual y se pide volver a entrar (sesion: false)');
+
+// Qué manda: si el humano cambia admin_password_hash (hash-contrasena.py --subir), credencial.json queda sin efecto
+$HASH_SCRIPT = password_hash('clave-puesta-con-el-script-2026', PASSWORD_ARGON2ID, ARGON_RAPIDO);
+$cScript = cfg_prueba(['admin_password_hash' => $HASH_SCRIPT, 'panel_dir' => $c['dir']]);
+$e3 = ps_estado($cScript, srv());
+ok($e3['origen_hash'] === 'config' && $e3['hash'] === $HASH_SCRIPT && $e3['huella'] !== ps_estado($c, srv())['huella'], 'config cambiado después: manda el config (credencial.json ignorado) y cambia la huella (se cierran todas las sesiones)');
+ok(login($cScript, srv('203.0.113.153'), $AHORA + 60, EMAIL, 'clave-puesta-con-el-script-2026')[0] === 200 && login($cScript, srv('203.0.113.154'), $AHORA + 60, EMAIL, NUEVA) === $CRED,
+    'entra la del script; la cambiada en el panel ya no');
+ok(ps_estado($c, srv())['origen_hash'] === 'panel', 'volver al hash anterior del config (--restaurar-config) vuelve a dar validez a credencial.json');
+$guardado = (string) file_get_contents($fc);
+file_put_contents($fc, '{roto');
+ok(ps_estado($c, srv())['origen_hash'] === 'config', 'credencial.json roto: se ignora (manda el config)');
+file_put_contents($fc, json_encode(['formato' => 1, 'hash' => password_hash('x', PASSWORD_BCRYPT, ['cost' => 10]), 'base' => hash('sha256', $HASH), 'cambiado' => 'x']));
+ok(ps_estado($c, srv())['origen_hash'] === 'config', 'credencial.json con bcrypt coste 10: se ignora (R1)');
+file_put_contents($fc, $guardado);
+ok(ps_credencial_leer($c['dir'], '') === null, 'sin hash en el config, credencial.json no cuenta (R12 sigue cerrando)');
+touch($c['dir'] . '/.tmp-credencial-viejo', $AHORA - 7200);
+ps_purgar($c['dir'], $AHORA);
+ok(!is_file($c['dir'] . '/.tmp-credencial-viejo'), 'la purga borra temporales de cambios interrumpidos');
+
+// R2: 5 actuales incorrectas bloquean; el bloqueo vale también para el login y para seguir cambiando
+$c = nuevo_panel();
+$e = ps_estado($c, srv());
+$S2 = ['huella' => $e['huella']] + $SES;
+$ip = '198.51.100.160';
+$cods = [];
+for ($i = 0; $i < 5; $i++) $cods[] = cambiar($c, srv_cambio($ip), ['actual' => 'mala-pero-larga-' . $i] + $cuerpoOk, $AHORA + $i, $S2)[0];
+ok($cods === [400, 400, 400, 400, 429], '5 actuales incorrectas: la 5.ª bloquea (429 «bloqueado»)', implode(',', $cods));
+ok(login($c, srv($ip), $AHORA + 10) === $CRED, 'tras el bloqueo, ese visitante tampoco entra por el login con la contraseña buena');
+ok(cambiar($c, srv_cambio($ip), $cuerpoOk, $AHORA + 11, $S2) === [429, ['ok' => false, 'error' => 'bloqueado', 'campo' => 'actual']] && !is_file($c['dir'] . '/credencial.json'), 'bloqueado: ni con la actual correcta se cambia');
+for ($i = 0; $i < 4; $i++) login($c, srv('198.51.100.161'), $AHORA + $i, EMAIL, 'mala-pero-larga-123');
+ok(cambiar($c, srv_cambio('198.51.100.161'), ['actual' => 'otra-mala-larga-1'] + $cuerpoOk, $AHORA + 5, $S2)[0] === 429, '4 logins fallidos + 1 actual incorrecta = bloqueo (un solo contador)');
+$c = nuevo_panel();
+$e = ps_estado($c, srv());
+file_put_contents($e['dir'] . '/bloqueo', 'no soy una carpeta');
+ok(cambiar($c, srv_cambio(), $cuerpoOk, $AHORA, ['huella' => $e['huella']] + $SES)[0] === 503, 'sin contador de intentos: no se cambia (503)');
+
+// Sesión real (HTTP): id nuevo, huella y token nuevos, y las demás sesiones cerradas
+$c = nuevo_panel();
+$e = ps_estado($c, srv());
+$ids = [];
+for ($i = 0; $i < 3; $i++) { unset($_COOKIE[PS_COOKIE]); session_id(''); ps_sesion_nueva($e, $AHORA); $ids[] = session_id(); }
+ok(count(array_unique($ids)) === 3 && count(glob($e['dir'] . '/sesiones/sess_*')) === 3, 'tres sesiones abiertas (tres navegadores)');
+$_COOKIE[PS_COOKIE] = $ids[0];
+session_id($ids[0]);
+$antesS = ps_sesion_actual($e, $AHORA + 5);
+$huellaN = ps_huella('$argon2id$ficticio', SAL);
+$rot = ps_sesion_rotar($e, $huellaN, $AHORA + 6);
+$nuevoId = session_id();
+ok(is_array($rot) && $rot['cerradas'] === 2 && preg_match('/^[a-f0-9]{64}$/D', $rot['csrf']) && $rot['csrf'] !== $antesS['csrf'], 'rotar: cierra las otras 2 y da un token CSRF nuevo', json_encode($rot));
+ok($nuevoId !== $ids[0] && glob($e['dir'] . '/sesiones/sess_*') === [$e['dir'] . '/sesiones/sess_' . $nuevoId], 'id de sesión regenerado: solo queda el archivo de la sesión nueva');
+$cont = (string) file_get_contents($e['dir'] . '/sesiones/sess_' . $nuevoId);
+ok(str_contains($cont, 'huella|s:32:"' . $huellaN . '"') && str_contains($cont, 'inicio|i:' . $AHORA . ';') && !str_contains($cont, PASS), 'la sesión nueva guarda la huella nueva y conserva su inicio (el tope de 8 h no se reinicia)');
+$eN = ['huella' => $huellaN] + $e;
+$_COOKIE[PS_COOKIE] = $nuevoId; session_id($nuevoId);
+ok(is_array(ps_sesion_actual($eN, $AHORA + 7)), 'la sesión que cambió la contraseña sigue abierta');
+$_COOKIE[PS_COOKIE] = $ids[1]; session_id($ids[1]);
+ok(ps_sesion_actual($eN, $AHORA + 7) === null, 'otra sesión anterior queda cerrada');
+$_COOKIE[PS_COOKIE] = $nuevoId; session_id($nuevoId);
+ok(ps_sesion_actual($e, $AHORA + 8) === null, 'con la huella anterior (otra pestaña con el hash viejo) ya no vale');
+unset($_COOKIE[PS_COOKIE]);
+
+// Página, endpoint y JS
+$pag = (string) file_get_contents("$RAIZ/panel/contrasena.php");
+ok(!preg_match('/<script(?![^>]*\bsrc=)/i', $pag) && !preg_match('/\son[a-z]+=/i', $pag) && !preg_match('/\sstyle=/i', $pag), 'contrasena.php sin scripts, manejadores ni estilos en línea (CSP)');
+ok(str_contains($pag, "htmlspecialchars((string) \$sesion['csrf'], ENT_QUOTES") && str_contains($pag, "if (!\$e['login'])") && str_contains($pag, "header('Location: /login/', true, 303)"), 'página: token escapado, 503 sin configuración y sin sesión al login');
+ok(substr_count($pag, 'type="password"') === 3 && str_contains($pag, 'autocomplete="current-password"') && substr_count($pag, 'autocomplete="new-password"') === 2 && substr_count($pag, 'aria-pressed="false"') === 3,
+    'tres campos de contraseña con autocomplete correcto y su botón «Mostrar» (aria-pressed)');
+foreach (['panel/leads.php', 'panel/index.html', 'panel/contrasena.php'] as $f) {
+    ok(str_contains((string) file_get_contents("$RAIZ/$f"), '<a href="/panel/contrasena.php"'), "$f: «Contraseña» en el menú del panel");
+}
+$jsC = preg_replace('#/\*.*?\*/|//[^\n]*#s', '', (string) file_get_contents("$RAIZ/panel/contrasena.js"));
+ok(!preg_match('/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|console\.|localStorage|sessionStorage/i', $jsC), 'contrasena.js: sin innerHTML, eval, consola ni almacenamiento (no guarda ni registra contraseñas)');
+ok(str_contains($jsC, "'X-DL-Accion': '1'") && str_contains($jsC, "referrerPolicy: 'same-origin'") && substr_count($jsC, 'fetch(') === 1, 'contrasena.js: un solo fetch, con X-DL-Accion y Origin real');
+$api = (string) file_get_contents("$RAIZ/panel/contrasena-cambiar.php");
+ok(str_contains($api, "if (!\$e['login']) ps_json(503") && str_contains($api, "if (\$sesion === null) ps_json(401"), 'contrasena-cambiar.php: 503 sin configuración y 401 sin sesión');
+ok(str_contains((string) file_get_contents("$RAIZ/login/entrar.php"), 'ps_sesion_nueva($estado, $ahora)'), 'el login guarda la huella del hash vigente en la sesión');
 
 /* ================================================================== */
 echo implode("\n", $lineas), "\n\n";

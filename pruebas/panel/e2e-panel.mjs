@@ -45,8 +45,10 @@ const libre = () => new Promise((r) => { const s = net.createServer(); s.listen(
 const PUERTO = await libre();
 const ORIGEN = `http://127.0.0.1:${PUERTO}`;
 const EMAIL = 'admin@ejemplo.test';
-const PASS = 'clave-ficticia-e2e-' + crypto.randomBytes(6).toString('hex');
-const HASH = execFileSync(PHP, ['-r', "echo password_hash(stream_get_contents(STDIN), PASSWORD_ARGON2ID, ['memory_cost' => 8192, 'time_cost' => 2, 'threads' => 1]);"], { input: PASS }).toString();
+const PASS_INICIAL = 'clave-ficticia-e2e-' + crypto.randomBytes(6).toString('hex');
+const PASS_NUEVA = 'otra-clave-ficticia-e2e-' + crypto.randomBytes(6).toString('hex');   // tarea 54
+let PASS = PASS_INICIAL;                                                                // cambia tras la tarea 54
+const HASH = execFileSync(PHP, ['-r', "echo password_hash(stream_get_contents(STDIN), PASSWORD_ARGON2ID, ['memory_cost' => 8192, 'time_cost' => 2, 'threads' => 1]);"], { input: PASS_INICIAL }).toString();
 const lit = (s) => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
 fs.writeFileSync(path.join(BASE, 'dl-auditoria-config.php'), `<?php\nreturn [\n  'admin_email' => ${lit(EMAIL)},\n  'admin_password_hash' => ${lit(HASH)},\n  'panel_sal' => ${lit(crypto.randomBytes(32).toString('hex'))},\n  'origenes' => [${lit(ORIGEN)}],\n];\n`);
 fs.writeFileSync(path.join(COLA, 'config.php'), `<?php\nreturn ['sal' => ${lit(crypto.randomBytes(32).toString('hex'))}];\n`);
@@ -95,12 +97,12 @@ const VISTAS = {
   movil: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
 };
 const sinScrollH = (pag) => pag.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
-const captura = async (pag, nombre, completa = false) => {
+const captura = async (pag, nombre, completa = false, prefijo = 'panel-leads-') => {
   ok(await sinScrollH(pag), `${nombre}: sin scroll horizontal`);
   if (!CAPTURAS) return;
   fs.mkdirSync(CAPTURAS, { recursive: true });
   await pag.evaluate(() => document.fonts.ready);
-  await pag.screenshot({ path: path.join(CAPTURAS, `panel-leads-${nombre}.png`), fullPage: completa });
+  await pag.screenshot({ path: path.join(CAPTURAS, `${prefijo}${nombre}.png`), fullPage: completa });
 };
 async function contexto(v) {
   const ctx = await nav.newContext({ ...VISTAS[v], reducedMotion: 'reduce', acceptDownloads: true });
@@ -387,12 +389,149 @@ try {
   await esc.ctx.close();
   await ctx.close();
 
+  /* ================= Cambiar contraseña (tarea 54) ================= */
+  console.log('\nCambiar contraseña (tarea 54)');
+  const panelDir = path.join(COLA, 'panel');
+  const sesionesDir = path.join(panelDir, 'sesiones');
+  const fallosVisitante = () => fs.readdirSync(path.join(panelDir, 'bloqueo')).filter((f) => f.startsWith('v-'))
+    .reduce((n, f) => n + ((JSON.parse(fs.readFileSync(path.join(panelDir, 'bloqueo', f), 'utf8') || '{}').fallos) || []).length, 0);
+  // Dos navegadores con sesión: A cambia la contraseña; B tiene que quedar fuera
+  const A = await contexto('escritorio');
+  const B = await contexto('escritorio');
+  await entrar(A.pag); await A.pag.waitForURL('**/panel/leads.php');
+  await entrar(B.pag); await B.pag.waitForURL('**/panel/leads.php');
+  await A.pag.waitForSelector('#filas a.fila');
+  await A.pag.click('.nav a[href="/panel/contrasena.php"]');
+  await A.pag.waitForURL('**/panel/contrasena.php');
+  ok((await A.pag.getAttribute('.nav a[aria-current=page]', 'href')) === '/panel/contrasena.php', 'del menú del panel se llega a «Contraseña», que queda marcada');
+  r = await A.pag.goto(ORIGEN + '/panel/contrasena.php');
+  ok(r.status() === 200 && R5(r.headers()) && /style-src 'self'(;|$)/.test(r.headers()['content-security-policy']), 'página Contraseña: cabeceras R5 y CSP sin estilos en línea');
+  const anonC = await (await nav.newContext()).request.get(ORIGEN + '/panel/contrasena.php', { maxRedirects: 0 });
+  ok(anonC.status() === 303 && anonC.headers().location === '/login/', 'sin sesión, /panel/contrasena.php lleva a /login/');
+  const anonPost = await A.ctx.request.post(ORIGEN + '/panel/contrasena-cambiar.php', { headers: { 'Content-Type': 'application/json', Origin: ORIGEN, 'X-DL-Accion': '1', Cookie: '' }, data: '{}' });
+  ok(anonPost.status() === 401 && R5(anonPost.headers()), 'cambio sin sesión: 401 con cabeceras R5');
+  await A.pag.evaluate(() => document.fonts.ready);
+  await captura(A.pag, 'escritorio', false, 'panel-contrasena-');
+
+  // Mostrar / ocultar, accesible
+  await A.pag.fill('#actual', 'texto-de-prueba');
+  const ver = A.pag.locator('.ver[aria-controls=actual]');
+  await ver.click();
+  ok((await A.pag.getAttribute('#actual', 'type')) === 'text' && (await ver.getAttribute('aria-pressed')) === 'true' && (await ver.textContent()) === 'Ocultar'
+    && (await ver.getAttribute('aria-label')) === 'Ocultar la contraseña actual', '«Mostrar» enseña la contraseña (aria-pressed y etiqueta cambian)');
+  await ver.press('Enter');
+  ok((await A.pag.getAttribute('#actual', 'type')) === 'password' && (await ver.getAttribute('aria-pressed')) === 'false', 'con el teclado se vuelve a ocultar');
+
+  // Validación en la página: errores junto a cada campo y foco en el primero
+  await A.pag.fill('#actual', '');
+  await A.pag.fill('#nueva', 'corta');
+  await A.pag.click('#enviar');
+  ok((await A.pag.textContent('#e-actual')) === 'Escribe tu contraseña actual.' && (await A.pag.textContent('#e-nueva')) === 'La contraseña nueva es muy corta: necesita 14 caracteres o más.'
+    && (await A.pag.getAttribute('#nueva', 'aria-invalid')) === 'true' && await A.pag.evaluate(() => document.activeElement.id === 'actual'), 'vacía y muy corta: mensajes en su campo y foco en el primero');
+  await captura(A.pag, 'errores-escritorio', false, 'panel-contrasena-');
+  await A.pag.fill('#actual', PASS);
+  await A.pag.fill('#nueva', PASS_NUEVA);
+  await A.pag.fill('#repite', PASS_NUEVA + 'x');
+  await A.pag.click('#enviar');
+  ok((await A.pag.textContent('#e-repite')) === 'Las dos contraseñas nuevas no coinciden.' && await A.pag.isHidden('#e-nueva'), '«no coinciden» en la repetición');
+  await A.pag.fill('#nueva', PASS); await A.pag.fill('#repite', PASS);
+  await A.pag.click('#enviar');
+  ok((await A.pag.textContent('#e-nueva')) === 'La contraseña nueva tiene que ser distinta de la actual.', '«distinta de la actual»');
+
+  // Actual incorrecta (servidor): mensaje claro y cuenta como intento de login (R2)
+  const fallosAntes = fallosVisitante();
+  await A.pag.fill('#actual', 'no-es-la-actual-' + crypto.randomBytes(3).toString('hex'));
+  await A.pag.fill('#nueva', PASS_NUEVA); await A.pag.fill('#repite', PASS_NUEVA);
+  const respMala = A.pag.waitForResponse((x) => x.url().endsWith('/panel/contrasena-cambiar.php'));
+  await A.pag.click('#enviar');
+  const rm = await respMala;
+  await A.pag.waitForSelector('#e-actual:not([hidden])');
+  ok(rm.status() === 400 && (await A.pag.textContent('#e-actual')) === 'La contraseña actual no es correcta.' && await A.pag.evaluate(() => document.activeElement.id === 'actual'), 'actual incorrecta: 400 y «La contraseña actual no es correcta.» en su campo');
+  ok(fallosVisitante() === fallosAntes + 1, 'la actual incorrecta cuenta como un intento fallido de login (mismo contador)', `${fallosAntes} → ${fallosVisitante()}`);
+  ok(!fs.existsSync(path.join(panelDir, 'credencial.json')), 'con la actual incorrecta no se guarda nada');
+
+  // CSRF / Origin / cabecera de acción por HTTP real (cookie de A a mano, como en Leads)
+  const csrfA = await A.pag.inputValue('#csrf');
+  const galletaA = { Cookie: '__Host-dlpanel=' + (await A.ctx.cookies()).find((c) => c.name === '__Host-dlpanel').value };
+  const postC = (cuerpo, cab = {}) => A.ctx.request.post(ORIGEN + '/panel/contrasena-cambiar.php', { headers: { 'Content-Type': 'application/json', Origin: ORIGEN, 'X-DL-Accion': '1', ...galletaA, ...cab }, data: JSON.stringify(cuerpo) });
+  const cuerpoC = { actual: PASS, nueva: PASS_NUEVA, repite: PASS_NUEVA };
+  const sinTok = await postC(cuerpoC);
+  ok(sinTok.status() === 403 && (await sinTok.json()).error === 'csrf' && R5(sinTok.headers()), 'cambio sin token CSRF: 403 con cabeceras R5');
+  ok((await postC({ ...cuerpoC, csrf: 'f'.repeat(64) })).status() === 403, 'cambio con token falso: 403');
+  ok((await postC({ ...cuerpoC, csrf: csrfA }, { Origin: 'https://evil.example' })).status() === 403, 'cambio con token pero Origin ajeno: 403');
+  ok((await postC({ ...cuerpoC, csrf: csrfA }, { 'X-DL-Accion': '' })).status() === 403, 'cambio sin «X-DL-Accion: 1»: 403');
+  ok((await A.ctx.request.get(ORIGEN + '/panel/contrasena-cambiar.php', { headers: galletaA })).status() === 405, 'cambio por GET: 405');
+  ok(!fs.existsSync(path.join(panelDir, 'credencial.json')), 'ningún rechazo CSRF cambió la contraseña');
+
+  // Cambio correcto desde la página
+  await A.pag.fill('#actual', PASS);
+  await A.pag.fill('#nueva', PASS_NUEVA);
+  await A.pag.fill('#repite', PASS_NUEVA);
+  const origenesC = [];
+  const anota = async (x) => { if (x.method() === 'POST') { const h = await x.allHeaders(); origenesC.push(h.origin + '|' + (h['x-dl-accion'] || '')); } };
+  A.pag.on('request', anota);
+  const respOk = A.pag.waitForResponse((x) => x.url().endsWith('/panel/contrasena-cambiar.php'));
+  await A.pag.click('#enviar');
+  const ro = await respOk;
+  A.pag.off('request', anota);
+  await A.pag.waitForSelector('#hecho:not([hidden])');
+  const cuerpoOk = await ro.text();
+  ok(ro.status() === 200 && /^Contraseña cambiada\. Se cerr(ó 1 sesión|aron \d+ sesiones) más\./.test(await A.pag.textContent('#hecho')), 'cambio correcto: «Contraseña cambiada» y cuántas sesiones se cerraron', await A.pag.textContent('#hecho'));
+  ok(origenesC.length === 1 && origenesC[0] === ORIGEN + '|1', 'el POST sale con el Origin real y X-DL-Accion: 1', origenesC.join(','));
+  ok(!cuerpoOk.includes(PASS) && !cuerpoOk.includes(PASS_NUEVA), 'la respuesta no lleva contraseñas');
+  ok((await A.pag.inputValue('#actual')) === '' && (await A.pag.inputValue('#nueva')) === '' && (await A.pag.inputValue('#repite')) === '', 'tras el cambio los campos quedan vacíos');
+  ok((await A.pag.inputValue('#csrf')) !== csrfA && /^[a-f0-9]{64}$/.test(await A.pag.inputValue('#csrf')), 'la página recibe el token CSRF nuevo');
+  ok(fs.readdirSync(sesionesDir).filter((f) => f.startsWith('sess_')).length === 1, 'en el servidor solo queda la sesión de quien la cambió');
+  const cred = JSON.parse(fs.readFileSync(path.join(panelDir, 'credencial.json'), 'utf8'));
+  ok(/^\$argon2id\$/.test(cred.hash) && cred.formato === 1 && !JSON.stringify(cred).includes(PASS_NUEVA), 'credencial.json en la carpeta privada con hash argon2id (sin la contraseña)');
+  ok(fs.readFileSync(path.join(BASE, 'dl-auditoria-config.php'), 'utf8').includes(HASH), 'dl-auditoria-config.php no se toca');
+  await captura(A.pag, 'hecho-escritorio', false, 'panel-contrasena-');
+  PASS = PASS_NUEVA;
+
+  // La sesión que cambió sigue; la otra queda cerrada; la vieja ya no entra y la nueva sí
+  await A.pag.goto(ORIGEN + '/panel/leads.php');
+  await A.pag.waitForSelector('#filas a.fila');
+  ok(new URL(A.pag.url()).pathname === '/panel/leads.php', 'quien la cambió sigue dentro (id de sesión nuevo)');
+  await B.pag.goto(ORIGEN + '/panel/leads.php');
+  ok(new URL(B.pag.url()).pathname === '/login/', 'la otra sesión abierta queda cerrada: vuelve al login');
+  await entrar(B.pag, PASS_INICIAL);
+  await B.pag.waitForSelector('[data-login-msg]:not([hidden])');
+  ok((await B.pag.textContent('[data-login-msg]')) === 'El email o la contraseña no son correctos.', 'la contraseña vieja ya no entra');
+  await entrar(B.pag, PASS_NUEVA);
+  await B.pag.waitForURL('**/panel/leads.php');
+  ok(true, 'login con la contraseña nueva');
+  ok(A.errores.length === 0 && B.errores.length === 0, 'sin errores de JavaScript ni de consola (contraseña, escritorio)', A.errores.concat(B.errores).join(' | '));
+  await A.ctx.close(); await B.ctx.close();
+
+  // Móvil
+  const M = await contexto('movil');
+  await entrar(M.pag);
+  await M.pag.waitForURL('**/panel/leads.php');
+  await M.pag.goto(ORIGEN + '/panel/contrasena.php');
+  await M.pag.waitForSelector('#form');
+  const cajaBtn = await M.pag.locator('#enviar').boundingBox();
+  const cajaVer = await M.pag.locator('.ver[aria-controls=nueva]').boundingBox();
+  const cajaIn = await M.pag.locator('#nueva').boundingBox();
+  ok(cajaBtn && cajaBtn.height >= 44 && cajaBtn.width > 300, 'móvil: botón «Cambiar contraseña» a todo el ancho y de 44 px o más', JSON.stringify(cajaBtn));
+  ok(cajaVer && cajaIn && cajaVer.x + cajaVer.width <= cajaIn.x + cajaIn.width && cajaVer.y >= cajaIn.y && cajaVer.y + cajaVer.height <= cajaIn.y + cajaIn.height, 'móvil: «Mostrar» dentro de su campo');
+  await captura(M.pag, 'movil', false, 'panel-contrasena-');
+  await captura(M.pag, 'movil-completa', true, 'panel-contrasena-');
+  await M.pag.fill('#actual', PASS);
+  await M.pag.fill('#nueva', 'trece-letras!');
+  await M.pag.tap('.ver[aria-controls=nueva]');
+  await M.pag.tap('#enviar');
+  ok((await M.pag.textContent('#e-nueva')) === 'La contraseña nueva es muy corta: necesita 14 caracteres o más.', 'móvil: 13 caracteres → «muy corta»');
+  await M.pag.waitForTimeout(800);
+  await captura(M.pag, 'errores-movil', false, 'panel-contrasena-');
+  ok(M.errores.length === 0, 'sin errores de JavaScript ni de consola (contraseña, móvil)', M.errores.join(' | '));
+  await M.ctx.close();
+
   /* ================= registro y bloqueo ================= */
   console.log('\nRegistro y bloqueo');
-  const panelDir = path.join(COLA, 'panel');
   const reg = fs.readdirSync(path.join(panelDir, 'registro')).map((f) => fs.readFileSync(path.join(panelDir, 'registro', f), 'utf8')).join('');
   ok(/"accion":"login".*"r":"fallo"/.test(reg) && /"accion":"atendido"/.test(reg) && /"accion":"csv"/.test(reg) && /"accion":"salir"/.test(reg), 'registro de accesos con login, atendido, CSV y salir');
-  const prohibido = ['127.0.0.1', EMAIL, PASS, 'Tomás', 'tomas@lumbre', 'Lumbre', 'Somos 14', 'lanzamiento-oct', 'Argentina'].filter((p) => reg.includes(p));
+  ok(/"accion":"contrasena"[^\n]*"r":"fallo"/.test(reg) && /"accion":"contrasena"[^\n]*"r":"csrf"/.test(reg) && /"accion":"contrasena"[^\n]*"r":"ok"/.test(reg), 'registro del cambio de contraseña: fallo, csrf y ok');
+  const prohibido = ['127.0.0.1', EMAIL, PASS_INICIAL, PASS_NUEVA, 'no-es-la-actual', 'Tomás', 'tomas@lumbre', 'Lumbre', 'Somos 14', 'lanzamiento-oct', 'Argentina'].filter((p) => reg.includes(p));
   ok(prohibido.length === 0, 'el registro no tiene IP, credenciales ni datos de leads', prohibido.join(', '));
   ok(!fs.readdirSync(WEB, { recursive: true }).some((f) => /sess_|acceso-|atendidos|bloqueo/.test(String(f))), 'nada de sesiones, registro ni estado dentro de public_html');
 

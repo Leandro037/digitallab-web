@@ -42,6 +42,15 @@ solo el valor anterior de panel_sal (o null). Nunca muestra la sal.
 --restaurar-config repone esas dos claves (o quita la que no existía) en el archivo REMOTO ACTUAL; las demás
 claves, aunque hayan cambiado después, no se tocan.
 El correo de acceso sigue en 'admin_email'. Ver docs/traspasos/20-tarea-50-panel-leads.md (proyecto leads).
+
+Qué contraseña manda (tarea 54). Desde el panel (menú «Contraseña») se puede cambiar sin este script: el hash
+nuevo va a /dl-leads/panel/credencial.json (0600), nunca a dl-auditoria-config.php. Ese archivo manda solo
+mientras admin_password_hash del config sea el mismo que había cuando se cambió (lo guarda como «base»). Por eso:
+  - este script (--subir) SIGUE FUNCIONANDO y es la vía de recuperación: al poner un admin_password_hash nuevo,
+    la contraseña cambiada en el panel queda sin efecto (no hace falta tocar credencial.json) y se cierran
+    todas las sesiones abiertas;
+  - --solo-sal no toca el hash: si la contraseña se cambió en el panel, sigue valiendo la del panel;
+  - --restaurar-config repone el hash anterior: si antes mandaba la del panel, vuelve a mandar la del panel.
 """
 import argparse
 import getpass
@@ -383,6 +392,8 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
             print(f"- {c}: " + ("se añadiría al final del array solo si no existe" + (" (con --forzar, también se sustituiría)" if forzar else "; si existe, no se hace nada")
                                if solo else "se sustituiría si existe o se añadiría al final del array (sin mostrar valores)"))
         print("Las demás claves no se tocan; los permisos del archivo se conservan.")
+        if not solo:
+            print("Si la contraseña se cambió desde el panel (credencial.json), al cambiar admin_password_hash esa queda sin efecto.")
         print("\nSimulación terminada: no se subió ni se guardó nada.")
         return 0
     php = buscar_php(a.php)
@@ -410,6 +421,7 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
         else:
             for c in CLAVES:
                 print(f"- {c}: " + ("existe -> se sustituiría su valor" if plan[c] == "sustituir" else "no existe -> se añadiría"))
+            print("- contraseña cambiada en el panel (credencial.json), si la hay: quedaría sin efecto; manda la nueva")
         print("- resto de claves: sin cambios (se comprueba con PHP antes de subir)")
         if not _MODO.fullmatch(modo or ""):
             print(f"  AVISO: el servidor no informa de los permisos ({modo}); al aplicar me detendría.")
@@ -449,7 +461,8 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
             print("Prueba ahora a entrar en /login/ con tu contraseña de siempre (no ha cambiado).")
             print(f"Cuando funcione, borra la carpeta {copia.parent}.")
         else:
-            print("Prueba ahora a entrar en /login/ con la contraseña nueva. Las sesiones abiertas siguen hasta que caduquen.")
+            print("Prueba ahora a entrar en /login/ con la contraseña nueva. Las sesiones abiertas se han cerrado y, si se había")
+            print("cambiado la contraseña desde el panel (credencial.json), esa ya no vale: manda la que acabas de poner.")
             print(f"Cuando funcione, borra la carpeta {copia.parent} (lleva el hash y la sal anteriores).")
         return 0
     finally:

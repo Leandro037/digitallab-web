@@ -11,7 +11,7 @@ try {
     $e = ps_estado($c, $_SERVER);
     if (!$e['leads']) { http_response_code(503); header('Content-Type: text/plain; charset=utf-8'); echo "Servicio no disponible.\n"; exit; }
     $ahora = time();
-    $sesion = ps_sesion_actual((string) $e['dir'], $ahora);
+    $sesion = ps_sesion_actual($e, $ahora);
     if ($sesion === null) { header('Location: /login/', true, 303); exit; }
     [$codigo, $cab, $cuerpo] = leads_csv_procesar($_SERVER, $_POST, (string) $e['cola'], (string) $e['dir'], $c, $sesion, ps_visitante($_SERVER, $c), $ahora);
     http_response_code($codigo);

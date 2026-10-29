@@ -292,6 +292,10 @@ try:
         return subprocess.run([sys.executable, str(SCRIPT), *a], capture_output=True, text=True, encoding="utf-8", timeout=60)
     c = cli("--subir", "--sin-red")
     ok(c.returncode == 0 and "SIMULAR" in c.stdout and "Simulación terminada" in c.stdout, "--subir --sin-red simula sin conectar", c.stdout + c.stderr)
+    ok("credencial.json" in c.stdout and "queda sin efecto" in c.stdout,
+       "tarea 54: --subir avisa de que deja sin efecto la contraseña cambiada en el panel", c.stdout)
+    ok("credencial.json" in (hc.__doc__ or "") and "manda" in (hc.__doc__ or "") and "vía de recuperación" in (hc.__doc__ or ""),
+       "tarea 54: la ayuda explica qué contraseña manda (panel o config)")
     c = cli("--subir", "--aplicar")
     ok(c.returncode != 0 and "--aprobado-por" in c.stderr, "--aplicar sin --aprobado-por se niega")
     c = cli("--aplicar", "--aprobado-por", "X")
@@ -305,7 +309,7 @@ try:
     c = cli("--subir", "--solo-sal", "--bcrypt")
     ok(c.returncode != 0 and "--bcrypt" in c.stderr, "--solo-sal con --bcrypt se niega")
     c = cli("--subir", "--solo-sal", "--sin-red")
-    ok(c.returncode == 0 and "solo la sal" in c.stdout and "panel_sal" in c.stdout and "admin_password_hash:" not in c.stdout,
+    ok(c.returncode == 0 and "solo la sal" in c.stdout and "panel_sal" in c.stdout and "admin_password_hash:" not in c.stdout and "credencial.json" not in c.stdout,
        "--solo-sal --subir --sin-red simula sin conectar y solo habla de panel_sal", c.stdout + c.stderr)
     c = cli("--subir", "--solo-sal", "--aplicar", "--aprobado-por", "X", "--sin-red")
     ok(c.returncode != 0, "--solo-sal con --aplicar --sin-red se niega")
