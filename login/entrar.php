@@ -19,7 +19,7 @@ try {
     $ahora = time();
     $cuerpo = (string) file_get_contents('php://input', false, null, 0, PS_MAX_CUERPO + 1);
     [$codigo, $datos] = ps_login($_SERVER, $cuerpo, $c, $estado, $ahora,
-        static fn(): bool => ps_sesion_nueva((string) $estado['dir'], $ahora),
+        static fn(): bool => ps_sesion_nueva($estado, $ahora),
         'ps_enviar_correo',
         'pais_de_ip');
     if ($codigo === 401) sleep(1);                              // frena los intentos a ciegas

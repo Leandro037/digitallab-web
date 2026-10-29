@@ -1,0 +1,36 @@
+/* Digital Lab · panel · «Cambiar contraseña» (tarea 54). Va DESPUÉS de leads.css y solo usa sus tokens y
+   componentes (.card, .campo, .prim, .ghost, .aviso, .bloque h3): aquí solo la tarjeta, el campo con «Mostrar»
+   y los errores en línea. Sin estilos en línea (CSP). */
+.clave-vista{display:grid;grid-template-columns:minmax(0,560px) minmax(0,360px);gap:14px;align-items:start}
+.clave{padding:20px 22px 22px}
+.clave h2,.clave-info h2{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 0 14px}
+.clave form{display:grid;gap:16px}
+.campo>label{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.pass{position:relative}
+.pass input{padding-right:96px;font-family:var(--mono);font-size:15px}
+.ver{position:absolute;right:5px;top:50%;transform:translateY(-50%);min-height:32px;min-width:78px;padding:4px 12px;border:1px solid var(--bd2);border-radius:99px;background:var(--card2);color:var(--tx);font:500 12px var(--mono)}
+.ver:hover{border-color:var(--ac)}
+.ver[aria-pressed=true]{border-color:rgba(90,212,28,.5);color:var(--ac)}
+.ayuda{margin:0;font-size:13px;color:var(--mut)}
+.err{margin:0;font-size:13.5px;color:#ffcdb5}
+.campo input[aria-invalid=true]{border-color:rgba(255,154,106,.7)}
+.botones{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+form[aria-busy=true] .prim{opacity:.7;cursor:progress}
+.prim[disabled]{cursor:progress}
+.clave-info{padding:20px 22px}
+.clave-info ul{margin:0;padding:0 0 0 18px;display:grid;gap:10px;font-size:14px;line-height:1.5;color:var(--mut)}
+.clave-info li::marker{color:var(--ac)}
+.clave-info b{color:var(--tx);font-weight:600}
+.clave-info code{font:13px var(--mono);color:var(--tx);white-space:nowrap}
+@media (max-width:420px){.clave-info code{white-space:normal;overflow-wrap:anywhere}}
+#hecho:focus{outline:none}#hecho:focus-visible{outline:2px solid var(--ac);outline-offset:3px}
+@media (prefers-reduced-motion:no-preference){.ver{transition:border-color .18s,color .18s}}
+
+@media (max-width:900px){
+  .clave-vista{grid-template-columns:minmax(0,1fr)}
+  .clave{padding:18px 16px 20px}
+  .clave-info{padding:18px 16px}
+  .ver{min-height:44px;min-width:78px}
+  .pass input{min-height:46px}
+  .botones .prim,.botones .ghost{flex:1 1 100%;min-height:46px}
+}

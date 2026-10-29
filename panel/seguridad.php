@@ -17,6 +17,16 @@
  *   'panel_aviso_de'      => opcional: remitente del aviso; por defecto digital-lab@dl-dev.com.
  * La IP real (ip_cabecera, ip_proxies) y la cola de leads (cola_dir) se leen de /dl-leads/config.php,
  * la misma configuración que usa /demo, para que login y formulario midan la IP igual.
+ *
+ * Tarea 54 · cambiar la contraseña desde el panel (/panel/contrasena.php). El hash nuevo NO se escribe en
+ * dl-auditoria-config.php (carpeta personal, 0644, con otras claves de API): va a <panel_dir>/credencial.json
+ * (0600, escritura atómica con flock). Qué hash manda:
+ *   - credencial.json, si existe, es válido y su «base» es el sha256 del admin_password_hash ACTUAL del config;
+ *   - si no, admin_password_hash del config. Así, poner una contraseña nueva con scripts/hash-contrasena.py
+ *     (cambia el hash del config) deja sin efecto la cambiada en el panel sin tocar credencial.json: es el
+ *     camino de recuperación si se olvida o si otra persona la cambió.
+ * Cada sesión guarda la «huella» (HMAC con panel_sal) del hash vigente: si el hash cambia, por el panel o por el
+ * script, todas las sesiones anteriores dejan de valer.
  */
 declare(strict_types=1);
 
@@ -39,7 +49,9 @@ const PS_VENTANA_GLOBAL = 3600;        // …en una hora…
 const PS_BLOQUEO_GLOBAL = 900;         // …bloquean el login 15 min
 const PS_REGISTRO_DIAS = 90;           // R11
 const PS_ID_LEAD = '/^L-\d{8}-\d{6}-[a-f0-9]{16}\z/D';   // R9
-const PS_ACCIONES = ['login', 'bloqueo_global', 'lista', 'ficha', 'atendido', 'nuevo', 'csv', 'salir'];
+const PS_MAX_CUERPO_CAMBIO = 8192;     // bytes del JSON del cambio de contraseña (3 × 1024 + token)
+const PS_CREDENCIAL = 'credencial.json';
+const PS_ACCIONES = ['login', 'bloqueo_global', 'lista', 'ficha', 'atendido', 'nuevo', 'csv', 'salir', 'contrasena'];
 const PS_RESULTADOS = ['ok', 'fallo', 'bloqueado', 'csrf', 'no_existe', 'error'];
 
 /* ------------------------------------------------------------------ */
@@ -130,18 +142,86 @@ function ps_carpeta_segura(string $dir, string $web, array $server, bool $crear)
 
 /**
  * R12: qué funciona con esta configuración.
- * @return array{login:bool, leads:bool, dir:?string, cola:?string, motivo:string}
+ * hash = hash vigente (credencial.json o config, ver cabecera); huella = HMAC del hash vigente que guarda cada
+ * sesión (si el hash cambia, las sesiones anteriores dejan de valer). Ambos vacíos si el login está cerrado.
+ * @return array{login:bool, leads:bool, dir:?string, cola:?string, motivo:string, hash:string, origen_hash:string, huella:string}
  */
 function ps_estado(array $c, array $server): array
 {
-    $cred = $c['email'] !== '' && filter_var($c['email'], FILTER_VALIDATE_EMAIL) && ps_hash_valido($c['hash']);
     $sal = strlen($c['sal']) >= PS_SAL_MIN;
     $dir = $sal ? ps_carpeta_segura($c['dir'], $c['web'], $server, true) : null;
+    $hash = $c['hash'];
+    $origen = 'config';
+    if ($dir !== null && ($h = ps_credencial_leer($dir, $c['hash'])) !== null) { $hash = $h; $origen = 'panel'; }
+    $cred = $c['email'] !== '' && filter_var($c['email'], FILTER_VALIDATE_EMAIL) && ps_hash_valido($hash);
     $cola = ps_carpeta_segura($c['cola'], $c['web'], $server, false);
     $login = $cred && $sal && $dir !== null;
     $motivo = !$cred ? 'credenciales' : (!$sal ? 'sal' : ($dir === null ? 'carpeta' : ($cola === null ? 'cola' : '')));
     if ($motivo !== '') error_log('Digital Lab panel: configuración incompleta (' . $motivo . ')');
-    return ['login' => $login, 'leads' => $login && $cola !== null, 'dir' => $dir, 'cola' => $cola, 'motivo' => $motivo];
+    return ['login' => $login, 'leads' => $login && $cola !== null, 'dir' => $dir, 'cola' => $cola, 'motivo' => $motivo,
+        'hash' => $login ? $hash : '', 'origen_hash' => $origen, 'huella' => $login ? ps_huella($hash, $c['sal']) : ''];
+}
+
+// Huella del hash vigente para las sesiones: HMAC con la sal secreta (no deja ver ni el hash)
+function ps_huella(string $hash, string $sal): string
+{
+    return substr(hash_hmac('sha256', 'sesion|' . $hash, $sal), 0, 32);
+}
+
+/* ------------------------------------------------------------------ */
+/* Contraseña cambiada en el panel: <panel_dir>/credencial.json (t. 54) */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Hash guardado por el panel, o null si no hay, no es válido o el config cambió después (entonces manda el config).
+ * Formato: {"formato":1, "hash":"$argon2id$…", "base":"<sha256 del admin_password_hash del config al cambiarla>", "cambiado":"…Z"}
+ */
+function ps_credencial_leer(string $dir, string $hashConfig): ?string
+{
+    $f = $dir . '/' . PS_CREDENCIAL;
+    if ($hashConfig === '' || !is_file($f)) return null;
+    if (is_link($f)) { error_log('Digital Lab panel: credencial.json es un enlace; se ignora'); return null; }
+    $t = @file_get_contents($f, false, null, 0, 4097);
+    $d = is_string($t) && strlen($t) <= 4096 ? json_decode($t, true, 3) : null;
+    if (!is_array($d) || ($d['formato'] ?? null) !== 1 || !is_string($d['hash'] ?? null) || !is_string($d['base'] ?? null)) {
+        error_log('Digital Lab panel: credencial.json no es válido; manda admin_password_hash');
+        return null;
+    }
+    if (!hash_equals(hash('sha256', $hashConfig), $d['base'])) return null;   // el config se cambió después: manda el config
+    if (!ps_hash_valido($d['hash'])) { error_log('Digital Lab panel: credencial.json con un hash no admitido; manda admin_password_hash'); return null; }
+    return $d['hash'];
+}
+
+/** Bloqueo exclusivo para leer-comprobar-escribir la credencial (dos cambios a la vez no se pisan). @return resource|null */
+function ps_credencial_bloquear(string $dir)
+{
+    return ps_abrir_contador($dir . '/credencial.lock');
+}
+
+// Escritura atómica: temporal 0600 en la misma carpeta + rename. Llamar con el bloqueo puesto.
+function ps_credencial_guardar(string $dir, string $hash, string $hashConfig, int $ahora): bool
+{
+    $json = json_encode(['formato' => 1, 'hash' => $hash, 'base' => hash('sha256', $hashConfig), 'cambiado' => gmdate('Y-m-d\TH:i:s\Z', $ahora)]);
+    $tmp = $dir . '/.tmp-credencial-' . bin2hex(random_bytes(8));
+    $viejo = umask(0077);
+    try {
+        $fh = @fopen($tmp, 'x');
+        if (!$fh) return false;
+        $ok = fwrite($fh, (string) $json) === strlen((string) $json) && fflush($fh);
+        fclose($fh);
+        @chmod($tmp, 0600);
+        if (!$ok || !@rename($tmp, $dir . '/' . PS_CREDENCIAL)) { @unlink($tmp); return false; }
+        return true;
+    } finally {
+        umask($viejo);
+    }
+}
+
+// R1: argon2id si este PHP lo tiene; si no, bcrypt coste 12. Se comprueba antes de guardarlo.
+function ps_hash_nuevo(string $pass): ?string
+{
+    $h = defined('PASSWORD_ARGON2ID') ? password_hash($pass, PASSWORD_ARGON2ID) : password_hash($pass, PASSWORD_BCRYPT, ['cost' => 12]);
+    return is_string($h) && ps_hash_valido($h) && password_verify($pass, $h) ? $h : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -377,6 +457,9 @@ function ps_purgar(string $dir, int $ahora): void
     foreach (glob("$dir/sesiones/sess_*") ?: [] as $f) {
         if ((int) @filemtime($f) < $ahora - PS_INACTIVIDAD) @unlink($f);
     }
+    foreach (glob("$dir/.tmp-credencial-*") ?: [] as $f) {          // temporal de un cambio interrumpido
+        if ((int) @filemtime($f) < $ahora - 3600) @unlink($f);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -386,15 +469,23 @@ function ps_purgar(string $dir, int $ahora): void
 /** @return array{0:string, 1:string} [asunto, cuerpo] sin IP ni datos de leads */
 function ps_aviso_texto(string $tipo, string $v, string $pais, int $ahora): array
 {
-    $que = $tipo === 'login' ? 'Inicio de sesión correcto en el panel' : 'Bloqueo global del acceso al panel (30 fallos en una hora)';
+    [$que, $resultado, $consejo] = match ($tipo) {
+        'login' => ['Inicio de sesión correcto en el panel', 'acceso concedido',
+            "Si no has sido tú, cambia la contraseña en el panel (menú «Contraseña»): se cierran las demás sesiones.\n"
+            . "Si ya no puedes entrar, pon una nueva desde tu PC con scripts/hash-contrasena.py --subir.\n"],
+        'contrasena' => ['Se cambió la contraseña del panel', 'contraseña nueva guardada; las demás sesiones del panel se cerraron',
+            "Si no fuiste tú, alguien tiene acceso al panel: pon una contraseña nueva desde tu PC con\n"
+            . "scripts/hash-contrasena.py --subir (deja sin efecto la cambiada en el panel y cierra todas las sesiones)\n"
+            . "y revisa el registro de accesos.\n"],
+        default => ['Bloqueo global del acceso al panel (30 fallos en una hora)', 'acceso cerrado 15 minutos para todos',
+            "Alguien está probando contraseñas. Revisa el registro de accesos del panel.\n"],
+    };
     $cuerpo = $que . "\n\n"
         . 'Fecha (UTC): ' . gmdate('Y-m-d H:i:s', $ahora) . "\n"
-        . 'Resultado: ' . ($tipo === 'login' ? 'acceso concedido' : 'acceso cerrado 15 minutos para todos') . "\n"
+        . 'Resultado: ' . $resultado . "\n"
         . 'País aproximado: ' . (preg_match('/^[A-Z]{2}$/D', $pais) ? $pais : 'desconocido') . "\n"
         . 'Visitante (código HMAC, no es la IP): ' . substr($v, 0, 12) . "\n\n"
-        . ($tipo === 'login'
-            ? "Si no has sido tú, cambia la contraseña (admin_password_hash) y borra la carpeta de sesiones del panel.\n"
-            : "Alguien está probando contraseñas. Revisa el registro de accesos del panel.\n")
+        . $consejo
         . "\n— Aviso automático de dl-dev.com\n";
     return ['[dl-dev.com] ' . $que, $cuerpo];
 }
@@ -444,7 +535,7 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
     $reserva = ps_reservar_intento($dir, $v, $ahora);
     if ($reserva === null) { error_log('Digital Lab panel: sin contador de intentos'); return [503, ['ok' => false, 'error' => 'sin_servicio']]; }
     if ($reserva['estado'] === 'bloqueado') {
-        password_verify(bin2hex(random_bytes(8)), $c['hash']);          // mismo tiempo que un intento normal
+        password_verify(bin2hex(random_bytes(8)), $estado['hash']);     // mismo tiempo que un intento normal
         ps_registrar($dir, 'login', '', $v, 'bloqueado', $ahora);
         return $mal;
     }
@@ -456,7 +547,7 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
     $largo = strlen($pass);
 
     // R1: 14+ caracteres y como mucho 1024 bytes; se compara siempre (mismo tiempo) aunque falle antes
-    $okPass = password_verify($largo <= PS_PASS_MAX ? $pass : '', $c['hash']);
+    $okPass = password_verify($largo <= PS_PASS_MAX ? $pass : '', $estado['hash']);   // hash vigente (credencial.json o config)
     $ok = is_array($in) && $trampa === '' && $largo <= PS_PASS_MAX && mb_strlen($pass) >= PS_PASS_MIN
         && hash_equals(strtolower($c['email']), strtolower($email)) && $okPass;
 
@@ -479,15 +570,99 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
 }
 
 /* ------------------------------------------------------------------ */
+/* Cambiar la contraseña desde el panel (tarea 54)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Procesa un cambio de contraseña de una sesión YA válida, sin efectos globales: $rotarSesion(huella nueva)
+ * regenera el id, pone la huella y un token nuevos y cierra las demás sesiones (devuelve ['csrf', 'cerradas'] o
+ * null); el correo lo manda $enviar y el país lo da $pais.
+ * Orden: método → CSRF + Origin + X-DL-Accion (R6) → configuración (R12) → formato de la nueva (no cuenta como
+ * intento: no comprueba nada) → reserva del intento en los MISMOS contadores que el login (R2) → bajo flock,
+ * comprobar la actual con el hash vigente → «distinta de la actual» (solo tras acertar: si no, sería un
+ * oráculo) → hash nuevo → credencial.json → sesión → registro → aviso. Nunca devuelve ni registra contraseñas.
+ * @return array{0:int, 1:array<string,mixed>} [código HTTP, cuerpo JSON]
+ */
+function ps_cambiar_contrasena(array $server, string $cuerpo, array $c, array $estado, array $sesion, int $ahora,
+    callable $rotarSesion, callable $enviar, ?callable $pais = null): array
+{
+    if (($server['REQUEST_METHOD'] ?? '') !== 'POST') return [405, ['ok' => false, 'error' => 'metodo']];
+    $in = strlen($cuerpo) <= PS_MAX_CUERPO_CAMBIO ? json_decode($cuerpo, true, 3) : null;
+    $in = is_array($in) ? $in : [];
+    $dir = (string) ($estado['dir'] ?? '');
+    $v = $dir !== '' ? ps_visitante($server, $c) : '';
+    if (!ps_csrf_ok($server, $c, $in['csrf'] ?? null, $sesion) || !ps_es_accion_usuario($server)) {
+        if ($dir !== '') ps_registrar($dir, 'contrasena', '', $v, 'csrf', $ahora);
+        return [403, ['ok' => false, 'error' => 'csrf']];
+    }
+    if (!$estado['login']) return [503, ['ok' => false, 'error' => 'sin_servicio']];   // R12
+
+    $txt = static fn(string $k): string => is_string($in[$k] ?? null) ? $in[$k] : '';
+    $actual = $txt('actual'); $nueva = $txt('nueva'); $repite = $txt('repite');
+    // Formato: no cuenta como intento porque no se compara nada con la contraseña guardada
+    if ($actual === '') return [400, ['ok' => false, 'error' => 'actual_vacia', 'campo' => 'actual']];
+    if (mb_strlen($nueva) < PS_PASS_MIN) return [400, ['ok' => false, 'error' => 'corta', 'campo' => 'nueva']];
+    if (strlen($nueva) > PS_PASS_MAX) return [400, ['ok' => false, 'error' => 'larga', 'campo' => 'nueva']];
+    if (!hash_equals($nueva, $repite)) return [400, ['ok' => false, 'error' => 'no_coinciden', 'campo' => 'repite']];
+
+    // R2: la contraseña actual cuenta como un intento de login (mismo visitante, mismos contadores)
+    $reserva = ps_reservar_intento($dir, $v, $ahora);
+    if ($reserva === null) { error_log('Digital Lab panel: sin contador de intentos'); return [503, ['ok' => false, 'error' => 'sin_servicio']]; }
+    if ($reserva['estado'] === 'bloqueado') {
+        password_verify(bin2hex(random_bytes(8)), $estado['hash']);
+        ps_registrar($dir, 'contrasena', '', $v, 'bloqueado', $ahora);
+        return [429, ['ok' => false, 'error' => 'bloqueado', 'campo' => 'actual']];
+    }
+
+    $fh = ps_credencial_bloquear($dir);
+    if ($fh === null) {
+        ps_anular_reserva($dir, $v, $ahora, $reserva);
+        error_log('Digital Lab panel: no se pudo bloquear credencial.lock');
+        return [503, ['ok' => false, 'error' => 'sin_servicio']];
+    }
+    try {
+        $vigente = ps_credencial_leer($dir, $c['hash']) ?? $c['hash'];          // releído bajo el bloqueo
+        $largo = strlen($actual);
+        $okPass = password_verify($largo <= PS_PASS_MAX ? $actual : '', $vigente);
+        if (!($okPass && $largo <= PS_PASS_MAX && mb_strlen($actual) >= PS_PASS_MIN && ps_hash_valido($vigente))) {
+            $bloquea = $reserva['visitante'] > 0;
+            ps_registrar($dir, 'contrasena', '', $v, $bloquea ? 'bloqueado' : 'fallo', $ahora);
+            if ($reserva['global_nuevo']) {
+                ps_registrar($dir, 'bloqueo_global', '', $v, 'bloqueado', $ahora);
+                ps_avisar($c, 'bloqueo_global', $v, $pais ? (string) $pais(demo_ip($server, $c)) : '??', $ahora, $enviar);
+            }
+            return $bloquea ? [429, ['ok' => false, 'error' => 'bloqueado', 'campo' => 'actual']] : [400, ['ok' => false, 'error' => 'actual', 'campo' => 'actual']];
+        }
+        if (!ps_anular_reserva($dir, $v, $ahora, $reserva)) error_log('Digital Lab panel: no se pudo anular la reserva del intento');
+        if (hash_equals($actual, $nueva)) return [400, ['ok' => false, 'error' => 'igual', 'campo' => 'nueva']];
+        $hash = ps_hash_nuevo($nueva);
+        if ($hash === null || !ps_credencial_guardar($dir, $hash, $c['hash'], $ahora)) {
+            error_log('Digital Lab panel: no se pudo guardar la contraseña nueva');
+            ps_registrar($dir, 'contrasena', '', $v, 'error', $ahora);
+            return [503, ['ok' => false, 'error' => 'sin_servicio']];
+        }
+    } finally {
+        ps_cerrar_contador($fh);
+    }
+
+    $r = $rotarSesion(ps_huella($hash, $c['sal']));
+    ps_registrar($dir, 'contrasena', '', $v, 'ok', $ahora);
+    $aviso = ps_avisar($c, 'contrasena', $v, $pais ? (string) $pais(demo_ip($server, $c)) : '??', $ahora, $enviar);
+    if (!is_array($r)) return [200, ['ok' => true, 'sesion' => false, 'aviso' => $aviso]];   // cambiada; hay que volver a entrar
+    return [200, ['ok' => true, 'sesion' => true, 'csrf' => (string) $r['csrf'], 'cerradas' => (int) $r['cerradas'], 'aviso' => $aviso]];
+}
+
+/* ------------------------------------------------------------------ */
 /* Sesión (R3)                                                           */
 /* ------------------------------------------------------------------ */
 
-// 30 min sin actividad y 8 h como máximo
-function ps_sesion_valida(mixed $s, int $ahora): bool
+// 30 min sin actividad y 8 h como máximo. Con $huella (tarea 54): además, abierta con el hash vigente.
+function ps_sesion_valida(mixed $s, int $ahora, ?string $huella = null): bool
 {
     if (!is_array($s) || ($s['admin'] ?? 0) !== 1) return false;
     $ini = $s['inicio'] ?? null; $ult = $s['ultimo'] ?? null;
     if (!is_int($ini) || !is_int($ult) || $ini > $ahora + 60) return false;
+    if ($huella !== null && ($huella === '' || !is_string($s['huella'] ?? null) || !hash_equals($huella, $s['huella']))) return false;
     return $ahora - $ini < PS_MAXIMO && $ahora - $ult < PS_INACTIVIDAD && is_string($s['csrf'] ?? null);
 }
 
@@ -512,27 +687,30 @@ function ps_sesion_abrir(string $dir): bool
     return $ok;
 }
 
-// (HTTP) Login correcto: id nuevo (R3), sesión limpia y token CSRF (R6)
-function ps_sesion_nueva(string $dir, int $ahora): bool
+// (HTTP) Login correcto: id nuevo (R3), sesión limpia, token CSRF (R6) y huella del hash vigente (tarea 54).
+// $e = ps_estado().
+function ps_sesion_nueva(array $e, int $ahora): bool
 {
-    if (!ps_sesion_abrir($dir)) return false;
+    if (($e['huella'] ?? '') === '' || !ps_sesion_abrir((string) $e['dir'])) return false;
     session_regenerate_id(true);
-    $_SESSION = ['admin' => 1, 'inicio' => $ahora, 'ultimo' => $ahora, 'csrf' => bin2hex(random_bytes(32))];
+    $_SESSION = ['admin' => 1, 'inicio' => $ahora, 'ultimo' => $ahora, 'csrf' => bin2hex(random_bytes(32)), 'huella' => $e['huella']];
     session_write_close();
     return true;
 }
 
 /**
- * (HTTP) Sesión válida → sus datos; si no, null.
+ * (HTTP) Sesión válida → sus datos; si no, null. $e = ps_estado() (carpeta y huella del hash vigente).
  * $renovar: anota la actividad (R3, 30 min de inactividad). Solo para acciones del usuario: navegar a una
  * página, filtrar, abrir una ficha, marcar, descargar. Las llamadas automáticas (el sondeo de las
  * estadísticas cada 60 s) NO renuevan (H1 de la tarea 51): con la pestaña olvidada la sesión caduca a los 30 min.
+ * Una sesión abierta con otro hash (contraseña cambiada después, por el panel o por el script) no vale.
  */
-function ps_sesion_actual(string $dir, int $ahora, bool $renovar = true): ?array
+function ps_sesion_actual(array $e, int $ahora, bool $renovar = true): ?array
 {
+    $dir = (string) ($e['dir'] ?? '');
     if (!isset($_COOKIE[PS_COOKIE]) || !is_string($_COOKIE[PS_COOKIE])) return null;
-    if (!ps_sesion_abrir($dir)) return null;
-    if (!ps_sesion_valida($_SESSION, $ahora)) {
+    if ($dir === '' || !ps_sesion_abrir($dir)) return null;
+    if (!ps_sesion_valida($_SESSION, $ahora, (string) ($e['huella'] ?? ''))) {
         $_SESSION = [];
         session_destroy();
         ps_borrar_cookie();
@@ -557,6 +735,37 @@ function ps_sesion_actual(string $dir, int $ahora, bool $renovar = true): ?array
 function ps_es_accion_usuario(array $server): bool
 {
     return ($server['HTTP_X_DL_ACCION'] ?? '') === '1';
+}
+
+/**
+ * (HTTP) Tras cambiar la contraseña (tarea 54): la sesión actual sigue, con id nuevo (el anterior se borra),
+ * la huella del hash nuevo y un token CSRF nuevo; todas las demás sesiones del panel se borran.
+ * @return array{csrf:string, cerradas:int}|null  null = no se pudo (habrá que volver a entrar)
+ */
+function ps_sesion_rotar(array $e, string $huella, int $ahora): ?array
+{
+    $dir = (string) ($e['dir'] ?? '');
+    if ($dir === '' || $huella === '' || !isset($_COOKIE[PS_COOKIE]) || !ps_sesion_abrir($dir)) return null;
+    if (!ps_sesion_valida($_SESSION, $ahora)) { session_abort(); return null; }
+    if (!session_regenerate_id(true)) { session_abort(); return null; }
+    $csrf = bin2hex(random_bytes(32));
+    $_SESSION['huella'] = $huella;
+    $_SESSION['csrf'] = $csrf;
+    $_SESSION['ultimo'] = $ahora;
+    $id = session_id();
+    session_write_close();
+    return ['csrf' => $csrf, 'cerradas' => ps_sesiones_cerrar_otras($dir, $id)];
+}
+
+// Borra los archivos de sesión del panel salvo el de $idActual. Devuelve cuántos borró.
+function ps_sesiones_cerrar_otras(string $dir, string $idActual): int
+{
+    $n = 0;
+    foreach (glob("$dir/sesiones/sess_*") ?: [] as $f) {
+        if (basename($f) === 'sess_' . $idActual) continue;
+        if (@unlink($f)) $n++;
+    }
+    return $n;
 }
 
 // (HTTP)

@@ -20,7 +20,7 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (form.elements.web.value) return;   // campo trampa relleno
-    const email = form.elements.email.value.trim(), password = form.elements.password.value;
+    const email = form.elements.email.value.trim(), password = document.getElementById('lg-password').value;   // sin name: no viaja si el JS falla (tarea 55, H1)
     if (!email || !password) { show('credenciales'); return; }
     btn.disabled = true;
     msg.hidden = true;
@@ -36,7 +36,7 @@
       try { body = await r.json(); } catch (err) { /* respuesta no JSON: sin PHP */ }
       if (!body) { show(r.status === 404 || r.status === 405 ? 'sin_servicio' : 'error'); return; }
       if (!body.ok || !/^(\/panel\/|https:\/\/)/.test(body.url || '')) { show(body.error); return; }
-      form.elements.password.value = '';
+      document.getElementById('lg-password').value = '';
       location.assign(body.url);
     } catch (err) {
       show('error');

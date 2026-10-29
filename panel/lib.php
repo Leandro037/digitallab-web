@@ -25,7 +25,7 @@ const PANEL_VERSION_DB = 1;
 function panel_autorizado(): bool
 {
     $e = ps_estado(ps_config(), $_SERVER);
-    return $e['login'] && ps_sesion_actual((string) $e['dir'], time(), ps_es_accion_usuario($_SERVER)) !== null;
+    return $e['login'] && ps_sesion_actual($e, time(), ps_es_accion_usuario($_SERVER)) !== null;
 }
 
 function panel_exigir(): void

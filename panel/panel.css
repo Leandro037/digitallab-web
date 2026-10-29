@@ -18,12 +18,13 @@ a{color:var(--ac2)}
 @keyframes p{70%{box-shadow:0 0 0 8px transparent}}
 @media (prefers-reduced-motion:reduce){.ahora i{animation:none}}
 .salir{font:500 13px var(--mono);text-decoration:none;border:1px solid var(--bd2);padding:7px 13px;border-radius:99px;color:var(--tx)}.salir:hover{border-color:var(--ac);color:var(--ac)}
-/* Menú Estadísticas / Leads (tarea 50, igual que en leads.css; en móvil se oculta como en la maqueta aprobada) */
+/* Menú Estadísticas / Leads / Contraseña (igual que en leads.css; en móvil pasa a una fila bajo la cabecera) */
 .nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--bd2);border-radius:99px;padding:3px}
 .nav a{color:var(--mut);text-decoration:none;padding:6px 14px;border-radius:99px;font-size:14px}
 .nav a:hover{color:var(--tx)}
 .nav a[aria-current=page]{background:var(--ac);color:#061204;font-weight:600}
-@media (max-width:900px){.nav{display:none}}
+@media (max-width:900px){.top{flex-wrap:wrap;row-gap:4px;padding-top:6px;padding-bottom:6px}.marca{min-height:44px}.salir{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 15px}.rangos button,#actualizar{min-height:44px}.pie a{display:inline-block;padding:14px 0;margin:-14px 0}.nav{order:9;flex:1 0 100%}.nav a{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 6px;text-align:center}}
+@media (max-width:600px){.ah-t{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}  /* en móvil el contador cabe junto a «Salir»; el texto sigue para lectores de pantalla */
 main{position:relative;max-width:1280px;margin:0 auto;padding:22px clamp(16px,4vw,32px)}
 .titulo{margin:0 0 18px}.titulo p{margin:0 0 4px;font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ac)}.titulo h1{margin:0;font-size:clamp(26px,4vw,38px);font-weight:600;letter-spacing:-.02em}
 .barra{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}

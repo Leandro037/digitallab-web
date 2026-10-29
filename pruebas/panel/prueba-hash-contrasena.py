@@ -205,6 +205,30 @@ try:
     ok(all(v not in out for v in VALORES.values()) and VIEJO not in out, "la salida no muestra el hash ni la sal")
     ok("--restaurar-config" in out, "dice cómo volver atrás")
 
+    print("4b. --subir --aplicar borra credencial.json (tarea 55, H2)")
+    CRED = hc.CREDENCIAL_REMOTA
+    ftp = FtpFalso({REM: CONFIG.encode(), CRED: b'{"hash":"x"}'}, {REM: "0600", CRED: "0600"})
+    r, out = ejecutar(hc.cmd_subir, args(aplicar=True), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=datetime(2026, 10, 28, 12, 5, 0))
+    ok(r == 0 and CRED not in ftp.archivos and ("DELE", CRED) in ftp.ops and "BORRADO" in out and CRED in out and ftp.archivos[REM] != CONFIG.encode(),
+       "con credencial.json en el servidor lo borra y lo dice", out)
+    ok(ftp.ops.index(("DELE", CRED)) > [o[0] for o in ftp.ops].index("RNFR"), "lo borra después de subir el config nuevo")
+    ftp = FtpFalso({REM: CONFIG.encode()}, {REM: "0600"})
+    r, out = ejecutar(hc.cmd_subir, args(aplicar=True), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=datetime(2026, 10, 28, 12, 6, 0))
+    ok(r == 0 and not any(o[0] == "DELE" for o in ftp.ops) and "no existía" in out, "si no existe no borra nada y lo dice")
+    ftp = FtpFalso({REM: CONFIG.encode(), CRED: b"{}"}, {REM: "0600", CRED: "0600"})
+    r, out = ejecutar(hc.cmd_subir, args(solo_sal=True, aplicar=True), pf, ftp_factory=lambda: ftp, ahora=datetime(2026, 10, 28, 12, 7, 0))
+    ok(r == 0 and CRED in ftp.archivos and not any(o[0] == "DELE" for o in ftp.ops), "--solo-sal no toca credencial.json")
+    ftp = FtpFalso({REM: CONFIG.encode(), CRED: b"{}"}, {REM: "0600", CRED: "0600"})
+    r, out = ejecutar(hc.cmd_subir, args(), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=AHORA)
+    ok(r == 0 and CRED in ftp.archivos and "se borraría por FTP" in out, "en simulación no borra y avisa de que lo haría")
+    ftp = FtpFalso({REM: CONFIG.encode(), CRED: b"{}"}, {REM: "0600", CRED: "0600"})
+    ftp.borrar = lambda r: (_ for _ in ()).throw(OSError("550 sin permiso"))
+    r, out = ejecutar(hc.cmd_subir, args(aplicar=True), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=datetime(2026, 10, 28, 12, 8, 0))
+    ok(r == 0 and "AVISO" in out and "a mano" in out, "si el borrado falla, avisa sin deshacer el config")
+    ok("NO lo uses tras un incidente" in out or "No lo uses tras un incidente" in out, "tras aplicar recuerda no usar --restaurar-config tras un incidente")
+    hs = (RAIZ / "scripts" / "hash-contrasena.py").read_text(encoding="utf-8")
+    ok("TRAS UN INCIDENTE" in hs and "NO lo uses tras un incidente" in hs, "la ayuda desaconseja --restaurar-config tras un incidente")
+
     print("5. --subir --aplicar: fallos que dejan el servidor como estaba")
     ftp = FtpFalso({REM: CONFIG.encode()}, {REM: "0600"}, chmod_roto=True)
     r, out = ejecutar(hc.cmd_subir, args(aplicar=True), pf, ftp_factory=lambda: ftp, pedir=lambda: dict(VALORES), ahora=datetime(2026, 10, 28, 12, 0, 1))
@@ -292,6 +316,10 @@ try:
         return subprocess.run([sys.executable, str(SCRIPT), *a], capture_output=True, text=True, encoding="utf-8", timeout=60)
     c = cli("--subir", "--sin-red")
     ok(c.returncode == 0 and "SIMULAR" in c.stdout and "Simulación terminada" in c.stdout, "--subir --sin-red simula sin conectar", c.stdout + c.stderr)
+    ok("credencial.json" in c.stdout and "queda sin efecto" in c.stdout,
+       "tarea 54: --subir avisa de que deja sin efecto la contraseña cambiada en el panel", c.stdout)
+    ok("credencial.json" in (hc.__doc__ or "") and "manda" in (hc.__doc__ or "") and "vía de recuperación" in (hc.__doc__ or ""),
+       "tarea 54: la ayuda explica qué contraseña manda (panel o config)")
     c = cli("--subir", "--aplicar")
     ok(c.returncode != 0 and "--aprobado-por" in c.stderr, "--aplicar sin --aprobado-por se niega")
     c = cli("--aplicar", "--aprobado-por", "X")
@@ -305,7 +333,7 @@ try:
     c = cli("--subir", "--solo-sal", "--bcrypt")
     ok(c.returncode != 0 and "--bcrypt" in c.stderr, "--solo-sal con --bcrypt se niega")
     c = cli("--subir", "--solo-sal", "--sin-red")
-    ok(c.returncode == 0 and "solo la sal" in c.stdout and "panel_sal" in c.stdout and "admin_password_hash:" not in c.stdout,
+    ok(c.returncode == 0 and "solo la sal" in c.stdout and "panel_sal" in c.stdout and "admin_password_hash:" not in c.stdout and "credencial.json" not in c.stdout,
        "--solo-sal --subir --sin-red simula sin conectar y solo habla de panel_sal", c.stdout + c.stderr)
     c = cli("--subir", "--solo-sal", "--aplicar", "--aprobado-por", "X", "--sin-red")
     ok(c.returncode != 0, "--solo-sal con --aplicar --sin-red se niega")
