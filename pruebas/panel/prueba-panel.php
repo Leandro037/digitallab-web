@@ -801,6 +801,17 @@ ok(!preg_match('/<script(?![^>]*\bsrc=)/i', $pag) && !preg_match('/\son[a-z]+=/i
 ok(str_contains($pag, "htmlspecialchars((string) \$sesion['csrf'], ENT_QUOTES") && str_contains($pag, "if (!\$e['login'])") && str_contains($pag, "header('Location: /login/', true, 303)"), 'página: token escapado, 503 sin configuración y sin sesión al login');
 ok(substr_count($pag, 'type="password"') === 3 && str_contains($pag, 'autocomplete="current-password"') && substr_count($pag, 'autocomplete="new-password"') === 2 && substr_count($pag, 'aria-pressed="false"') === 3,
     'tres campos de contraseña con autocomplete correcto y su botón «Mostrar» (aria-pressed)');
+// Tarea 55 (H1): sin JS el envío normal no puede poner nada en la URL ni en el registro
+$loginHtml = (string) file_get_contents("$RAIZ/login/index.html");
+foreach (['panel/contrasena.php' => $pag, 'login/index.html' => $loginHtml] as $f => $txt) {
+    ok(preg_match('/<form\b[^>]*\bmethod="post"[^>]*\baction="[^"]*sin-js\.php"/', $txt) === 1, "$f: <form method=\"post\"> con action a sin-js.php");
+    ok(preg_match('/<input\b[^>]*type="password"[^>]*\bname=/', $txt) === 0 && preg_match('/<input\b[^>]*\bname="[^"]*"[^>]*type="password"/', $txt) === 0, "$f: los campos de contraseña no llevan name");
+}
+ok(preg_match('/<input\b[^>]*type="hidden"[^>]*\bname=/', $pag) === 0, 'contrasena.php: el token CSRF oculto tampoco lleva name (el JS lo lee por id)');
+$sinjsCod = preg_replace('#/\*.*?\*/|//[^\n]*#s', '', (string) file_get_contents("$RAIZ/panel/sin-js.php"));
+ok(str_contains($sinjsCod, 'http_response_code(400)') && !preg_match('/php:\/\/input|\$_POST|\$_REQUEST|error_log|file_put_contents|session|ps_config|ps_estado/i', $sinjsCod), 'sin-js.php: responde 400, no lee el cuerpo, no registra ni abre sesión');
+$jsL = (string) file_get_contents("$RAIZ/login/login.js");
+ok(!str_contains($jsL, 'elements.password') && str_contains($jsL, "getElementById('lg-password')"), 'login.js lee la contraseña por id');
 foreach (['panel/leads.php', 'panel/index.html', 'panel/contrasena.php'] as $f) {
     ok(str_contains((string) file_get_contents("$RAIZ/$f"), '<a href="/panel/contrasena.php"'), "$f: «Contraseña» en el menú del panel");
 }

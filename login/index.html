@@ -24,7 +24,7 @@
   </header>
 
   <main class="lg-main wrap">
-    <form class="lg-card form" data-login novalidate>
+    <form class="lg-card form" data-login method="post" action="/panel/sin-js.php" novalidate>
       <p class="eyebrow"><i></i>Panel de administración</p>
       <h1>Acceso del equipo</h1>
       <label class="field">
@@ -33,7 +33,7 @@
       </label>
       <label class="field">
         <span>Contraseña</span>
-        <input name="password" type="password" autocomplete="current-password" minlength="14" maxlength="1024" required>
+        <input id="lg-password" type="password"autocomplete="current-password" minlength="14" maxlength="1024" required>
       </label>
       <!-- Campo trampa contra robots: las personas no lo ven -->
       <div class="form__trap" aria-hidden="true"><label>No rellenar <input name="web" type="text" tabindex="-1" autocomplete="off"></label></div>
@@ -42,6 +42,6 @@
     </form>
   </main>
 
-  <script src="login.js?v=20261019a"></script>
+  <script src="login.js?v=20261029a"></script>
 </body>
 </html>

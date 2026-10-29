@@ -88,7 +88,7 @@ const ID_TOMAS = ESCRITOS[1].id;
 
 const LOG_PHP = path.join(BASE, 'php-errores.log');
 const php = spawn(PHP, ['-d', 'display_errors=0', '-d', 'log_errors=1', '-d', `error_log=${LOG_PHP}`, '-d', 'SMTP=127.0.0.1', '-d', 'smtp_port=9',
-  '-S', `127.0.0.1:${PUERTO}`, '-t', WEB], { stdio: 'ignore' });
+  '-S', `127.0.0.1:${PUERTO}`, '-t', WEB], { stdio: ['ignore', fs.openSync(path.join(BASE, 'php-salida.log'), 'a'), fs.openSync(path.join(BASE, 'php-salida.log'), 'a')] });   // salida = registro de accesos del servidor
 for (let i = 0; i < 50; i++) { try { await fetch(ORIGEN + '/favicon.svg'); break; } catch { await new Promise((r) => setTimeout(r, 100)); } }
 
 const nav = await chromium.launch();
@@ -116,7 +116,7 @@ async function contexto(v) {
 async function entrar(pag, pass = PASS) {
   await pag.goto(ORIGEN + '/login/');
   await pag.fill('input[name=email]', EMAIL);
-  await pag.fill('input[name=password]', pass);
+  await pag.fill('#lg-password', pass);
   await pag.click('[data-login-btn]');
 }
 const R5 = (h) => h['cache-control'] === 'no-store' && h['x-content-type-options'] === 'nosniff' && h['referrer-policy'] === 'no-referrer'
@@ -545,6 +545,55 @@ try {
   await captura(M.pag, 'errores-movil', false, 'panel-contrasena-');
   ok(M.errores.length === 0, 'sin errores de JavaScript ni de consola (contraseña, móvil)', M.errores.join(' | '));
   await M.ctx.close();
+
+  /* ================= sin JavaScript (tarea 55, H1) ================= */
+  console.log('\nSin JavaScript: Enter no pone nada en la URL ni en el registro');
+  {
+    const CENTINELA = 'centinela-sin-js-' + crypto.randomBytes(6).toString('hex');
+    const CORREO_C = 'centinela-' + crypto.randomBytes(3).toString('hex') + '@ejemplo.test';
+    const J = await contexto('escritorio');
+    await entrar(J.pag);
+    await J.pag.waitForURL('**/panel/leads.php');
+    const estado = await J.ctx.storageState();
+    await J.ctx.close();
+    const urls = [];
+    const probar = async (nombre, ruta, rellenar, tecla) => {
+      const ctx = await nav.newContext({ ...VISTAS.escritorio, javaScriptEnabled: false, storageState: estado });
+      const pag = await ctx.newPage();
+      pag.on('request', (q) => urls.push(q.url()));
+      await pag.goto(ORIGEN + ruta);
+      const form = await pag.$eval('form', (f) => ({ method: f.method, action: new URL(f.action).pathname,
+        conNombre: [...f.querySelectorAll('input[type=password]')].filter((i) => i.name).length, hay: f.querySelectorAll('input[type=password]').length,
+        ocultosConNombre: [...f.querySelectorAll('input[type=hidden]')].filter((i) => i.name).length }));
+      ok(form.method === 'post' && form.action === '/panel/sin-js.php' && form.hay >= 1 && form.conNombre === 0 && form.ocultosConNombre === 0,
+        `${nombre}: el formulario es method=post hacia /panel/sin-js.php y los campos de contraseña no llevan name`, JSON.stringify(form));
+      const [resp] = await Promise.all([pag.waitForResponse((x) => x.url().includes('sin-js.php')), rellenar(pag)]);
+      await pag.waitForLoadState('load');
+      const u = new URL(pag.url());
+      ok(resp.status() === 400 && resp.request().method() === 'POST' && u.pathname === '/panel/sin-js.php' && u.search === '' && u.hash === '',
+        `${nombre}: Enter envía POST a sin-js.php, responde 400 y la URL queda limpia`, `${resp.status()} ${pag.url()}`);
+      ok(/necesita JavaScript/.test(await pag.textContent('body')) && R5(resp.headers()), `${nombre}: avisa de que falta JavaScript y lleva cabeceras R5`);
+      ok((resp.request().postData() || '').split(CENTINELA).length === 1, `${nombre}: el cuerpo del POST no lleva la contraseña`, resp.request().postData() || '');
+      await ctx.close();
+    };
+    await probar('contrasena.php', '/panel/contrasena.php', async (pag) => {
+      await pag.fill('#actual', CENTINELA); await pag.fill('#nueva', CENTINELA + '-n'); await pag.fill('#repite', CENTINELA + '-n');
+      await pag.press('#repite', 'Enter');
+    });
+    await probar('login', '/login/', async (pag) => {
+      await pag.fill('input[name=email]', CORREO_C); await pag.fill('#lg-password', CENTINELA);
+      await pag.press('#lg-password', 'Enter');
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    const rara = (x) => x.includes(CENTINELA) || x.includes(CORREO_C) || (x.includes('?') && !/\?v=\w+$/.test(x));   // ?v= es la versión de los CSS/JS
+    ok(urls.length > 0 && !urls.some(rara), 'ninguna URL pedida lleva la contraseña, el correo ni parámetros (salvo ?v= de los recursos)', urls.filter(rara).join(' | '));
+    const recorrer = (d) => fs.readdirSync(d, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => path.join(e.parentPath || e.path, e.name));
+    const todo = recorrer(BASE).filter((f) => !/[\\/]public_html[\\/](fonts|panel[\\/]|login[\\/]|inc[\\/]|demo[\\/]|favicon|styles)/.test(f)).map((f) => fs.readFileSync(f, 'latin1')).join('\n');
+    const acceso = fs.readFileSync(path.join(BASE, 'php-salida.log'), 'utf8');
+    ok(/POST \/panel\/sin-js\.php/.test(acceso + fs.readFileSync(LOG_PHP, 'utf8')) || /sin-js\.php/.test(acceso), 'el registro de accesos del servidor muestra la petición (la prueba lee el registro de verdad)');
+    ok(!todo.includes(CENTINELA) && !todo.includes(CORREO_C), 'ni la contraseña ni el correo escritos aparecen en el registro del servidor, en el del panel ni en ningún archivo de estado');
+    ok(!/sin-js\.php\?/.test(acceso) && !/GET \/login\/\?|GET \/panel\/contrasena\.php\?/.test(acceso), 'el registro del servidor no tiene ninguna petición con parámetros');
+  }
 
   /* ================= registro y bloqueo ================= */
   console.log('\nRegistro y bloqueo');

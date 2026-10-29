@@ -51,6 +51,10 @@ mientras admin_password_hash del config sea el mismo que había cuando se cambi�
     todas las sesiones abiertas;
   - --solo-sal no toca el hash: si la contraseña se cambió en el panel, sigue valiendo la del panel;
   - --restaurar-config repone el hash anterior: si antes mandaba la del panel, vuelve a mandar la del panel.
+    TRAS UN INCIDENTE (contraseña robada o sospechosa) NO lo uses: repondría un hash viejo que puede ser el del
+    atacante o uno ya comprometido. Para recuperar el acceso usa siempre --subir --aplicar con una contraseña nueva.
+  - --subir --aplicar (sin --solo-sal) además BORRA /dl-leads/panel/credencial.json por FTP si existe y lo dice, para
+    que ninguna restauración posterior reviva una contraseña cambiada desde el panel.
 """
 import argparse
 import getpass
@@ -71,6 +75,7 @@ MAX_BYTES = 1024
 PHP_LOCAL = r"C:\Users\Win10\herramientas\php83\php.exe"
 CLAVES = ("admin_password_hash", "panel_sal")
 CONFIG_REMOTA = "/dl-auditoria-config.php"
+CREDENCIAL_REMOTA = "/dl-leads/panel/credencial.json"   # contraseña cambiada desde el panel (tarea 54)
 NOMBRE_COPIA = "claves-previas.json"   # solo los valores anteriores de CLAVES (literales PHP tal cual)
 PUBLICADOR = Path(os.environ.get("DL_PUBLICADOR")
                   or r"D:\Claude\Web Digital Lab\empresa\proyectos\leads\scripts\publicar-ftp.py")
@@ -378,6 +383,19 @@ def _leer_remota(ftp):
     return modo, datos, texto
 
 
+def _borrar_credencial(ftp) -> None:
+    """Borra credencial.json si existe. El config ya cambió y manda aunque falle: aquí solo se avisa."""
+    try:
+        if ftp.info(CREDENCIAL_REMOTA):
+            ftp.borrar(CREDENCIAL_REMOTA)
+            print(f"BORRADO: {CREDENCIAL_REMOTA} (contraseña cambiada desde el panel; ya no valía).")
+        else:
+            print(f"{CREDENCIAL_REMOTA}: no existía, nada que borrar.")
+    except Exception as e:
+        print(f"AVISO: no pude borrar {CREDENCIAL_REMOTA} ({ftp.limpio(e)}). Bórralo a mano: con el config nuevo ya no manda, "
+              "pero una restauración posterior podría reactivarlo.")
+
+
 def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
     aplicar = a.aplicar
     solo = bool(getattr(a, "solo_sal", False))
@@ -422,6 +440,7 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
             for c in CLAVES:
                 print(f"- {c}: " + ("existe -> se sustituiría su valor" if plan[c] == "sustituir" else "no existe -> se añadiría"))
             print("- contraseña cambiada en el panel (credencial.json), si la hay: quedaría sin efecto; manda la nueva")
+            print(f"- {CREDENCIAL_REMOTA}: se borraría por FTP si existe")
         print("- resto de claves: sin cambios (se comprueba con PHP antes de subir)")
         if not _MODO.fullmatch(modo or ""):
             print(f"  AVISO: el servidor no informa de los permisos ({modo}); al aplicar me detendría.")
@@ -456,7 +475,11 @@ def cmd_subir(a, pf, ftp_factory=None, pedir=None, ahora=None) -> int:
             sys.exit(f"Fallo al subir: {ftp.limpio(e)}. El archivo del servidor no cambió.")
         print(f"HECHO: {CONFIG_REMOTA} {ftp.info(CONFIG_REMOTA)[0]} bytes, permisos {ftp.modo(CONFIG_REMOTA)}")
         print(f"Valores anteriores de {'la sal' if solo else 'las dos claves'} en {copia.parent}")
+        if not solo:
+            _borrar_credencial(ftp)
         print(f"Para volver atrás: python scripts/hash-contrasena.py --restaurar-config \"{copia.parent}\" --aplicar --aprobado-por \"<nombre>\"")
+        if not solo:
+            print("  (No lo uses tras un incidente: repondría el hash anterior. Para recuperar el acceso, vuelve a ejecutar --subir --aplicar.)")
         if solo:
             print("Prueba ahora a entrar en /login/ con tu contraseña de siempre (no ha cambiado).")
             print(f"Cuando funcione, borra la carpeta {copia.parent}.")
@@ -530,7 +553,7 @@ def main() -> None:
     ap.add_argument("--bcrypt", action="store_true", help="bcrypt coste 12 en lugar de argon2id")
     ap.add_argument("--php", help="ruta del ejecutable de PHP")
     ap.add_argument("--subir", action="store_true", help="pone hash y sal en dl-auditoria-config.php del servidor (simula salvo --aplicar)")
-    ap.add_argument("--restaurar-config", metavar="CARPETA", help="repone la copia guardada por --subir (simula salvo --aplicar)")
+    ap.add_argument("--restaurar-config", metavar="CARPETA", help="repone la copia guardada por --subir (simula salvo --aplicar). NO lo uses tras un incidente: repone un hash viejo; recupera con --subir --aplicar")
     ap.add_argument("--aplicar", action="store_true", help="con --subir o --restaurar-config: escribe de verdad; exige --aprobado-por")
     ap.add_argument("--aprobado-por", default="", help="nombre de la persona que aprobó el cambio")
     ap.add_argument("--sin-red", action="store_true", help="con --subir, simula sin conectar al servidor")

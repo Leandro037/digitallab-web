@@ -55,13 +55,13 @@ header('Content-Type: text/html; charset=utf-8');
   <div class="clave-vista">
     <section class="card clave" aria-labelledby="tClave">
       <h2 id="tClave">Tus datos de acceso</h2>
-      <form id="form" novalidate>
-        <input type="hidden" name="csrf" id="csrf" value="<?= $csrf ?>">
+      <form id="form" method="post" action="sin-js.php" novalidate>
+        <input type="hidden" id="csrf" value="<?= $csrf ?>">
 
         <div class="campo">
           <label for="actual">Contraseña actual</label>
           <div class="pass">
-            <input type="password" id="actual" name="actual" autocomplete="current-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-actual">
+            <input type="password" id="actual"autocomplete="current-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-actual">
             <button class="ver" type="button" aria-controls="actual" aria-pressed="false" aria-label="Mostrar la contraseña actual">Mostrar</button>
           </div>
           <p class="err" id="e-actual" hidden></p>
@@ -70,7 +70,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div class="campo">
           <label for="nueva">Contraseña nueva</label>
           <div class="pass">
-            <input type="password" id="nueva" name="nueva" autocomplete="new-password" maxlength="1024" minlength="14" spellcheck="false" autocapitalize="off" required aria-describedby="a-nueva e-nueva">
+            <input type="password" id="nueva"autocomplete="new-password" maxlength="1024" minlength="14" spellcheck="false" autocapitalize="off" required aria-describedby="a-nueva e-nueva">
             <button class="ver" type="button" aria-controls="nueva" aria-pressed="false" aria-label="Mostrar la contraseña nueva">Mostrar</button>
           </div>
           <p class="ayuda" id="a-nueva">14 caracteres o más. Única: no la uses en ningún otro sitio.</p>
@@ -80,7 +80,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div class="campo">
           <label for="repite">Repite la contraseña nueva</label>
           <div class="pass">
-            <input type="password" id="repite" name="repite" autocomplete="new-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-repite">
+            <input type="password" id="repite"autocomplete="new-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-repite">
             <button class="ver" type="button" aria-controls="repite" aria-pressed="false" aria-label="Mostrar la repetición de la contraseña nueva">Mostrar</button>
           </div>
           <p class="err" id="e-repite" hidden></p>
