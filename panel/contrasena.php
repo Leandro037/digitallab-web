@@ -34,7 +34,7 @@ header('Content-Type: text/html; charset=utf-8');
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="leads.css?v=20261028a">
+<link rel="stylesheet" href="leads.css?v=20261029b">
 <link rel="stylesheet" href="contrasena.css?v=20261029a">
 </head>
 <body>

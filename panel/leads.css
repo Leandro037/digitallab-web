@@ -123,9 +123,9 @@ dl.datos dd.m{font:13.5px var(--mono)}
   .filtros{grid-template-columns:repeat(3,minmax(0,1fr))}.filtros .campo:first-child{grid-column:1/-1}
 }
 
+@media (max-width:900px){.top{flex-wrap:wrap;row-gap:8px}.nav{order:9;flex:1 0 100%}.nav a{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 6px;text-align:center}}
 /* móvil y tableta: filas como tarjetas, ficha como hoja a pantalla completa (se abre con #ficha) */
 @media (max-width:900px){
-  .nav{display:none}
   .marca span{display:none}
   .vista{display:block}
   .cab{display:none}

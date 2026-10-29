@@ -516,6 +516,26 @@ try {
   ok(cajaVer && cajaIn && cajaVer.x + cajaVer.width <= cajaIn.x + cajaIn.width && cajaVer.y >= cajaIn.y && cajaVer.y + cajaVer.height <= cajaIn.y + cajaIn.height, 'móvil: «Mostrar» dentro de su campo');
   await captura(M.pag, 'movil', false, 'panel-contrasena-');
   await captura(M.pag, 'movil-completa', true, 'panel-contrasena-');
+
+  // Menú visible en móvil (tarea 54b): fila de 3 enlaces bajo la cabecera, táctiles y dentro de la pantalla
+  const D = await contexto('escritorio');
+  await entrar(D.pag);
+  await D.pag.waitForURL('**/panel/leads.php');
+  for (const [pag, vista, ancho] of [[M.pag, 'movil', 390], [D.pag, 'escritorio', 1440]]) {
+    for (const [ruta, nombre] of [['/panel/', 'estadisticas'], ['/panel/leads.php', 'leads'], ['/panel/contrasena.php', 'contrasena']]) {
+      await pag.goto(ORIGEN + ruta);
+      await pag.waitForSelector('.nav a');
+      const cajas = await pag.locator('.nav a').evaluateAll((as) => as.map((a) => { const r = a.getBoundingClientRect(); return { x: r.x, w: r.width, h: r.height }; }));
+      const minH = vista === 'movil' ? 44 : 20;
+      ok(cajas.length === 3 && cajas.every((c) => c.h >= minH && c.w > 0 && c.x >= 0 && c.x + c.w <= ancho), `${vista}: el menú de ${nombre} se ve entero (3 enlaces${vista === 'movil' ? ' de 44 px o más' : ''})`, JSON.stringify(cajas));
+      ok((await pag.getAttribute('.nav a[aria-current=page]', 'href')) === ruta, `${vista}: en ${nombre} el menú marca la sección`);
+      if (vista === 'movil') ok(await pag.evaluate(() => { const m = document.querySelector('.marca').getBoundingClientRect(), s = document.querySelector('.salir').getBoundingClientRect(), n = document.querySelector('.nav').getBoundingClientRect(); return Math.abs(m.y - s.y) < 40 && s.bottom <= n.y; }), `movil: en ${nombre} marca y «Salir» van en una fila y el menú debajo`);
+      await captura(pag, `${nombre}-${vista}`, false, 'panel-menu-');
+    }
+  }
+  await D.ctx.close();
+  await M.pag.goto(ORIGEN + '/panel/contrasena.php');
+  await M.pag.waitForSelector('#form');
   await M.pag.fill('#actual', PASS);
   await M.pag.fill('#nueva', 'trece-letras!');
   await M.pag.tap('.ver[aria-controls=nueva]');
