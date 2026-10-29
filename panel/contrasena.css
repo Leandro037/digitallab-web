@@ -30,7 +30,7 @@ form[aria-busy=true] .prim{opacity:.7;cursor:progress}
   .clave-vista{grid-template-columns:minmax(0,1fr)}
   .clave{padding:18px 16px 20px}
   .clave-info{padding:18px 16px}
-  .ver{min-height:36px}
+  .ver{min-height:44px;min-width:78px}
   .pass input{min-height:46px}
   .botones .prim,.botones .ghost{flex:1 1 100%;min-height:46px}
 }

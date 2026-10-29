@@ -34,8 +34,8 @@ header('Content-Type: text/html; charset=utf-8');
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="leads.css?v=20261029b">
-<link rel="stylesheet" href="contrasena.css?v=20261029a">
+<link rel="stylesheet" href="leads.css?v=20261029c">
+<link rel="stylesheet" href="contrasena.css?v=20261029b">
 </head>
 <body>
 <header class="top">
@@ -61,7 +61,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div class="campo">
           <label for="actual">Contraseña actual</label>
           <div class="pass">
-            <input type="password" id="actual"autocomplete="current-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-actual">
+            <input type="password" id="actual" autocomplete="current-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-actual">
             <button class="ver" type="button" aria-controls="actual" aria-pressed="false" aria-label="Mostrar la contraseña actual">Mostrar</button>
           </div>
           <p class="err" id="e-actual" hidden></p>
@@ -70,7 +70,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div class="campo">
           <label for="nueva">Contraseña nueva</label>
           <div class="pass">
-            <input type="password" id="nueva"autocomplete="new-password" maxlength="1024" minlength="14" spellcheck="false" autocapitalize="off" required aria-describedby="a-nueva e-nueva">
+            <input type="password" id="nueva" autocomplete="new-password" maxlength="1024" minlength="14" spellcheck="false" autocapitalize="off" required aria-describedby="a-nueva e-nueva">
             <button class="ver" type="button" aria-controls="nueva" aria-pressed="false" aria-label="Mostrar la contraseña nueva">Mostrar</button>
           </div>
           <p class="ayuda" id="a-nueva">14 caracteres o más. Única: no la uses en ningún otro sitio.</p>
@@ -80,7 +80,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div class="campo">
           <label for="repite">Repite la contraseña nueva</label>
           <div class="pass">
-            <input type="password" id="repite"autocomplete="new-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-repite">
+            <input type="password" id="repite" autocomplete="new-password" maxlength="1024" spellcheck="false" autocapitalize="off" required aria-describedby="e-repite">
             <button class="ver" type="button" aria-controls="repite" aria-pressed="false" aria-label="Mostrar la repetición de la contraseña nueva">Mostrar</button>
           </div>
           <p class="err" id="e-repite" hidden></p>

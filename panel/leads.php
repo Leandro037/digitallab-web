@@ -33,7 +33,7 @@ header('Content-Type: text/html; charset=utf-8');
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="../fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="leads.css?v=20261029b">
+<link rel="stylesheet" href="leads.css?v=20261029c">
 </head>
 <body>
 <svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">

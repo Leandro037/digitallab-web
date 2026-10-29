@@ -546,6 +546,31 @@ try {
   ok(M.errores.length === 0, 'sin errores de JavaScript ni de consola (contraseña, móvil)', M.errores.join(' | '));
   await M.ctx.close();
 
+  // Zonas táctiles (tarea 55): a 360 y 390 px, todo botón y enlace visible de las tres páginas mide 44 px o más de alto y de ancho
+  console.log('\nZonas táctiles en móvil (360 y 390)');
+  for (const ancho of [360, 390]) {
+    const T = { ctx: await nav.newContext({ ...VISTAS.movil, viewport: { width: ancho, height: 800 }, reducedMotion: 'reduce' }) };
+    T.pag = await T.ctx.newPage();
+    await entrar(T.pag);
+    await T.pag.waitForURL('**/panel/leads.php');
+    for (const [ruta, nombre, listo] of [['/panel/', 'estadisticas', '#actualizar'], ['/panel/leads.php', 'leads', '#filas a.fila'], ['/panel/contrasena.php', 'contrasena', '#form']]) {
+      await T.pag.goto(ORIGEN + ruta);
+      await T.pag.waitForSelector(listo);
+      await T.pag.waitForTimeout(400);
+      const medidas = await T.pag.evaluate(() => [...document.querySelectorAll('a[href], button, [role=button], summary, input[type=submit], input[type=button]')].map((e) => {
+        const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+        const oculto = !!e.closest('[hidden], [aria-hidden=true], [inert]') || cs.display === 'none' || cs.visibility === 'hidden' || e.tabIndex < 0 && e.getAttribute('tabindex') === '-1'
+          || r.width <= 1 || r.height <= 1 || r.bottom < 0 || r.right < 0 || r.left > innerWidth || (e.disabled && false);
+        return { que: (e.id ? '#' + e.id : e.tagName.toLowerCase() + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/)[0] : '')) + ' «' + (e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 24) + '»', w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, oculto };
+      }));
+      const vis = medidas.filter((m) => !m.oculto);
+      const cortos = vis.filter((m) => m.w < 44 || m.h < 44);
+      ok(vis.length >= 3 && cortos.length === 0, `${ancho} px · ${nombre}: ${vis.length} botones y enlaces visibles, todos de 44 px o más de alto y ancho`, cortos.map((m) => `${m.que} ${m.w}×${m.h}`).join(' | '));
+      ok(await sinScrollH(T.pag), `${ancho} px · ${nombre}: sin scroll horizontal`);
+    }
+    await T.ctx.close();
+  }
+
   /* ================= sin JavaScript (tarea 55, H1) ================= */
   console.log('\nSin JavaScript: Enter no pone nada en la URL ni en el registro');
   {
