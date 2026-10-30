@@ -102,7 +102,7 @@
     const env = e === 'enviando';
     form.classList.toggle('is-sending', env);
     if (env) boton.setAttribute('aria-disabled', 'true'); else boton.removeAttribute('aria-disabled');
-    botonTxt.textContent = env ? 'Enviando…' : 'Pedir demo';
+    botonTxt.textContent = env ? 'Enviando…' : 'Registrarme gratis';
     const f = e === 'fallo' ? (tipoFallo || 'red') : e === 'limite' ? 'limite' : '';
     fallo.hidden = !f;
     if (f) falloMsg.textContent = f === 'limite' ? FALLO.limite : FALLO.red;

@@ -116,6 +116,9 @@
 .fa-price__side { display: flex; flex-direction: column; gap: 22px; padding-top: .3em; }
 .fa-figure { display: flex; align-items: flex-start; gap: 18px; margin: clamp(30px, 4vw, 52px) 0 0; }
 .fa-figure__n { font: 700 clamp(112px, 15vw, 212px)/.8 var(--mono); letter-spacing: -.06em; color: var(--text); font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .dm-g { display: none; } }   /* en el menú superior de un móvil, «Regístrate» a secas para que quepa en una línea */
+/* «Gratis» como protagonista: una palabra, no una cifra, así que va más pequeña para no desbordar */
+.fa-figure__n--txt { font-size: clamp(64px, 10vw, 148px); line-height: .9; letter-spacing: -.045em; }
 .fa-figure__u { display: flex; flex-direction: column; gap: 6px; padding-top: .2em; color: var(--text); font: 600 clamp(17px, 1.6vw, 22px)/1.25 var(--mono); }
 .fa-figure__u small { color: var(--soft); font-size: .8em; font-weight: 500; }
 .fa-figure__pago { margin: 18px 0 0; color: var(--muted); font-size: clamp(16px, 1.3vw, 18px); line-height: 1.5; }
@@ -255,6 +258,7 @@ fieldset.field legend { margin-bottom: 8px; padding: 0; color: var(--muted); fon
   .fa-reel__grid { gap: 28px; }
   .reel__frame { width: 100%; height: auto; }
   .fa-figure__n { font-size: clamp(88px, 28vw, 120px); }
+  .fa-figure__n--txt { font-size: clamp(52px, 17vw, 84px); }
   .fa-price__grid { gap: 28px; }
   .fa-price__side { padding-top: 0; }
   .fa-faq__grid > .st-head, .fa-demo__aside { position: static; }
