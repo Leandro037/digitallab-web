@@ -45,7 +45,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 <header class="top">
   <a class="marca" href="/" aria-label="Digital Lab, inicio"><img src="/favicon.svg" alt="" width="34" height="34"><strong>DIGITAL LAB</strong><span>Panel</span></a>
-  <nav class="nav" aria-label="Secciones del panel"><a href="/panel/">Estadísticas</a><a href="/panel/leads.php" aria-current="page">Leads</a><a href="/panel/contrasena.php">Contraseña</a></nav>
+  <nav class="nav" aria-label="Secciones del panel"><a href="/panel/">Estadísticas</a><a href="/panel/leads.php" aria-current="page">Leads</a><a href="/panel/licencias.php">Licencias</a><a href="/panel/contrasena.php">Contraseña</a></nav>
   <a class="salir" href="salir.php">Salir</a>
 </header>
 
