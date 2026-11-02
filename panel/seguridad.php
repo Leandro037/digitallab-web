@@ -470,9 +470,6 @@ function ps_purgar(string $dir, int $ahora): void
 function ps_aviso_texto(string $tipo, string $v, string $pais, int $ahora): array
 {
     [$que, $resultado, $consejo] = match ($tipo) {
-        'login' => ['Inicio de sesión correcto en el panel', 'acceso concedido',
-            "Si no has sido tú, cambia la contraseña en el panel (menú «Contraseña»): se cierran las demás sesiones.\n"
-            . "Si ya no puedes entrar, pon una nueva desde tu PC con scripts/hash-contrasena.py --subir.\n"],
         'contrasena' => ['Se cambió la contraseña del panel', 'contraseña nueva guardada; las demás sesiones del panel se cerraron',
             "Si no fuiste tú, alguien tiene acceso al panel: pon una contraseña nueva desde tu PC con\n"
             . "scripts/hash-contrasena.py --subir (deja sin efecto la cambiada en el panel y cierra todas las sesiones)\n"
@@ -564,8 +561,9 @@ function ps_login(array $server, string $cuerpo, array $c, array $estado, int $a
 
     if (!ps_anular_reserva($dir, $v, $ahora, $reserva)) error_log('Digital Lab panel: no se pudo anular la reserva del intento');
     if (!$abrirSesion()) return [503, ['ok' => false, 'error' => 'sin_servicio']];
+    // Decisión del propietario: un inicio de sesión correcto ya NO manda correo (queda en el registro de accesos). Siguen los avisos de
+    // bloqueo global y de cambio de contraseña, que sí indican algo raro.
     ps_registrar($dir, 'login', '', $v, 'ok', $ahora);
-    ps_avisar($c, 'login', $v, $pais ? (string) $pais($ip) : '??', $ahora, $enviar);
     return [200, ['ok' => true, 'url' => '/panel/leads.php']];
 }
 

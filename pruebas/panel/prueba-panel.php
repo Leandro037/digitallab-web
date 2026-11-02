@@ -348,23 +348,18 @@ ok(($porRG['login:fallo'] ?? 0) === 30 && ($porRG['login:bloqueado'] ?? 0) === 6
     '36 intentos simultáneos de IP distintas: 30 se comprueban, 6 se cortan y el bloqueo global salta una vez', json_encode($porRG));
 
 /* ================================================================== */
-titulo('R4 · Aviso de cada inicio de sesión');
+titulo('R4 · Sin aviso por correo en cada inicio de sesión (decisión del propietario); sí en bloqueo global y cambio de contraseña');
 $c = nuevo_panel();
 $CORREOS = [];
 login($c, srv('203.0.113.90'), $AHORA);
-ok(count($CORREOS) === 1, 'un login correcto envía un aviso');
-$m = $CORREOS[0] ?? ['para' => '', 'asunto' => '', 'cuerpo' => '', 'de' => ''];
-ok($m['para'] === 'digital-lab@dl-dev.com' && $m['de'] === 'digital-lab@dl-dev.com', 'a digital-lab@dl-dev.com por defecto');
-ok(str_contains($m['cuerpo'], 'Fecha (UTC): ' . gmdate('Y-m-d H:i:s', $AHORA)) && str_contains($m['cuerpo'], 'País aproximado: ES')
-    && str_contains($m['cuerpo'], 'acceso concedido') && str_contains($m['cuerpo'], substr(ps_visitante(srv('203.0.113.90'), $c), 0, 12)),
-    'lleva fecha UTC, resultado, país y el código HMAC del visitante');
-$todo = $m['asunto'] . $m['cuerpo'];
-ok(!str_contains($todo, '203.0.113.90') && !str_contains($todo, EMAIL) && !str_contains($todo, PASS), 'sin IP, sin el correo tecleado y sin la contraseña');
+ok($CORREOS === [], 'un login correcto ya NO envía correo');
 $CORREOS = [];
 login($c, srv('203.0.113.91'), $AHORA, EMAIL, 'mala-pero-larga-123');
 ok($CORREOS === [], 'un fallo suelto no envía aviso');
-ok(login($c, srv('203.0.113.92'), $AHORA, EMAIL, PASS, [], fn() => throw new RuntimeException('smtp caído'))[0] === 200, 'si el correo lanza un error, el login sigue');
-ok(login($c, srv('203.0.113.93'), $AHORA, EMAIL, PASS, [], fn() => false)[0] === 200, 'si mail() devuelve false, el login sigue');
+ok(login($c, srv('203.0.113.92'), $AHORA, EMAIL, PASS, [], fn() => throw new RuntimeException('smtp caído'))[0] === 200, 'el login no depende del correo (aunque lance un error)');
+ok(login($c, srv('203.0.113.93'), $AHORA, EMAIL, PASS, [], fn() => false)[0] === 200, 'el login no depende del correo (aunque devuelva false)');
+$reg90 = array_filter(lineas_registro($c['dir']), fn($x) => $x['accion'] === 'login' && $x['r'] === 'ok');
+ok(count($reg90) >= 1, 'el inicio de sesión correcto sigue quedando en el registro de accesos');
 $cSin = cfg_prueba(['panel_aviso_para' => '', 'panel_dir' => "$COLA/psin"]);
 $CORREOS = [];
 ok(login($cSin, srv('203.0.113.94'), $AHORA)[0] === 200 && $CORREOS === [], 'sin buzón configurado: se entra, sin aviso (R12)');
